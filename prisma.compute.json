@@ -1,0 +1,23 @@
+{
+  "region": "ap-southeast-1",
+  "apps": {
+    "api": {
+      "name": "api",
+      "root": "apps/api",
+      "framework": "nextjs",
+      "httpPort": 3000,
+      "build": {
+        "command": "next build"
+      }
+    },
+    "web": {
+      "name": "web",
+      "root": "apps/web",
+      "framework": "nextjs",
+      "httpPort": 3000,
+      "build": {
+        "command": "pnpm run build"
+      }
+    }
+  }
+}
