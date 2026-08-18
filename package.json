@@ -9,7 +9,8 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
-    "prepare": "husky"
+    "prepare": "husky",
+    "start:api": "node apps/api/dist/server.js"
   },
   "devDependencies": {
     "turbo": "^2.0.0",
