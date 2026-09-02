@@ -9,14 +9,14 @@ export const apiClient = {
         ...options.headers,
       },
     });
-    
+
     if (!response.ok) {
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
-    
+
     return response.json();
   },
-  
+
   post: async (endpoint: string, data: any, options: RequestInit = {}) => {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
@@ -27,11 +27,11 @@ export const apiClient = {
       },
       body: JSON.stringify(data),
     });
-    
+
     if (!response.ok) {
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
-    
+
     return response.json();
   },
 };
