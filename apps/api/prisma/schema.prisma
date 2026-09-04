@@ -14,21 +14,34 @@ datasource db {
 enum UserRole {
   OWNER
   ADMIN
-  STAFF
+  SALES
+  WAREHOUSE
 }
 
 enum BookingStatus {
   DRAFT
+  QUOTED
   CONFIRMED
-  ACTIVE
+  DISPATCHED
+  RETURNED
   COMPLETED
   CANCELLED
+  ACTIVE
+}
+
+enum BookingLineType {
+  PACKAGE
+  INVENTORY_ITEM
 }
 
 enum MovementType {
+  ADJUSTMENT
+  DAMAGE
+  MISSING
+  MAINTENANCE
+  MAINTENANCE_RESTORE
   CHECK_OUT
   CHECK_IN
-  ADJUSTMENT
   DAMAGE_WRITE_OFF
 }
 
@@ -45,11 +58,30 @@ enum PackageVersionStatus {
   ARCHIVED
 }
 
+enum ReservationStatus {
+  ACTIVE
+  CANCELLED
+}
+
 enum AuditAction {
   CREATE
   UPDATE
   DELETE
   LOGIN
+}
+
+enum IdempotencyOperation {
+  CONFIRM
+  CANCEL
+  RESCHEDULE
+  DISPATCH
+  RETURN
+  COMPLETE
+}
+
+enum IdempotencyStatus {
+  PROCESSING
+  COMPLETED
 }
 
 // -----------------------------------------------------------------------------
@@ -59,10 +91,12 @@ enum AuditAction {
 model Business {
   id        String   @id @default(uuid())
   name      String
-  slug      String   @unique
-  plan      String   @default("FREE")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  slug                       String   @unique
+  plan                       String   @default("FREE")
+  defaultBufferBeforeMinutes Int      @default(0)
+  defaultBufferAfterMinutes  Int      @default(0)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 
   users                User[]
   customers            Customer[]
@@ -72,13 +106,12 @@ model Business {
   packageVersions      PackageVersion[]
   packageComponents    PackageComponent[]
   bookings             Booking[]
-  bookingLines         BookingLine[]
   bookingItemDemands   BookingItemDemand[]
   inventoryReservations InventoryReservation[]
   inventoryMovements   InventoryMovement[]
   damageReports        DamageReport[]
   auditEvents          AuditEvent[]
-  idempotencyKeys      IdempotencyKey[]
+  idempotencyRecords   IdempotencyRecord[]
 
   @@map("businesses")
 }
@@ -88,11 +121,13 @@ model User {
   businessId   String
   email        String
   passwordHash String
-  role         UserRole @default(STAFF)
+  role         UserRole @default(SALES)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  inventoryMovements InventoryMovement[]
+  bookings           Booking[]
 
   @@unique([businessId, email])
   @@map("users")
@@ -121,10 +156,12 @@ model Customer {
 model Category {
   id         String   @id @default(uuid())
   businessId String
-  name       String
-  parentId   String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  name                String
+  parentId            String?
+  bufferBeforeMinutes Int?
+  bufferAfterMinutes  Int?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   business       Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
   parent         Category?       @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: SetNull)
@@ -143,10 +180,12 @@ model InventoryItem {
   totalQty       Int       @default(0)
   damagedQty     Int       @default(0)
   missingQty     Int       @default(0)
-  maintenanceQty Int       @default(0)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  deletedAt      DateTime?
+  maintenanceQty      Int       @default(0)
+  bufferBeforeMinutes Int?
+  bufferAfterMinutes  Int?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
 
   business              Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
   category              Category?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -155,7 +194,12 @@ model InventoryItem {
   inventoryReservations InventoryReservation[]
   inventoryMovements    InventoryMovement[]
   damageReports         DamageReport[]
+  bookingLines          BookingLine[]
 
+  @@unique([businessId, sku])
+  @@index([businessId])
+  @@index([businessId, categoryId])
+  @@index([businessId, id])
   @@map("inventory_items")
 }
 
@@ -209,6 +253,7 @@ model PackageComponent {
   packageVersion  PackageVersion @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
   inventoryItem   InventoryItem  @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
 
+  @@unique([packageVersionId, inventoryItemId])
   @@map("package_components")
 }
 
@@ -217,39 +262,49 @@ model PackageComponent {
 // -----------------------------------------------------------------------------
 
 model Booking {
-  id         String        @id @default(uuid())
-  businessId String
-  customerId String
-  status     BookingStatus @default(DRAFT)
-  period     Unsupported("tstzrange")
-  notes      String?
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  deletedAt  DateTime?
+  id              String        @id @default(uuid())
+  businessId      String
+  customerId      String
+  eventName       String
+  eventStart      DateTime
+  eventEnd        DateTime
+  location        String?
+  notes           String?
+  status          BookingStatus @default(DRAFT)
+  period          Unsupported("tstzrange")
+  createdByUserId String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
 
   business              Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
   customer              Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdByUser         User                   @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
   bookingLines          BookingLine[]
   bookingItemDemands    BookingItemDemand[]
   inventoryReservations InventoryReservation[]
   inventoryMovements    InventoryMovement[]
   damageReports         DamageReport[]
 
+  @@index([businessId, status])
+  @@index([businessId, createdAt])
+  @@index([businessId])
   @@map("bookings")
 }
 
 model BookingLine {
-  id               String   @id @default(uuid())
+  id               String          @id @default(uuid())
   bookingId        String
-  businessId       String
-  packageVersionId String
+  type             BookingLineType
+  packageVersionId String?
+  inventoryItemId  String?
   quantity         Int
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  business       Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  booking        Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  packageVersion PackageVersion @relation(fields: [packageVersionId], references: [id], onDelete: Restrict)
+  booking        Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  packageVersion PackageVersion? @relation(fields: [packageVersionId], references: [id], onDelete: Restrict)
+  inventoryItem  InventoryItem?  @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
 
   @@map("booking_lines")
 }
@@ -260,6 +315,7 @@ model BookingItemDemand {
   businessId        String
   inventoryItemId   String
   quantityDemanded  Int
+  quantity          Int?
   quantityFulfilled Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -267,24 +323,30 @@ model BookingItemDemand {
   business      Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
   booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  inventoryReservation InventoryReservation?
 
   @@map("booking_item_demands")
 }
 
 model InventoryReservation {
-  id              String   @id @default(uuid())
-  businessId      String
-  inventoryItemId String
-  bookingId       String
-  quantity        Int
-  period          Unsupported("tstzrange")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  businessId          String
+  inventoryItemId     String
+  bookingId           String
+  bookingItemDemandId String?  @unique
+  quantity            Int
+  status              ReservationStatus @default(ACTIVE)
+  period              Unsupported("tstzrange")
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
-  business      Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
-  booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  business          Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  inventoryItem     InventoryItem      @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  booking           Booking            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingItemDemand BookingItemDemand? @relation(fields: [bookingItemDemandId], references: [id], onDelete: SetNull)
 
+  @@index([bookingId])
+  @@index([businessId, inventoryItemId])
   @@map("inventory_reservations")
 }
 
@@ -300,12 +362,15 @@ model InventoryMovement {
   movementType    MovementType
   quantityDelta   Int
   notes           String?
+  createdByUserId String?
   createdAt       DateTime     @default(now())
 
-  business      Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
-  booking       Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  business        Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  booking         Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  createdByUser   User?         @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
 
+  @@index([businessId, inventoryItemId])
   @@map("inventory_movements")
 }
 
@@ -347,16 +412,22 @@ model AuditEvent {
   @@map("audit_events")
 }
 
-model IdempotencyKey {
-  id         String   @id @default(uuid())
-  businessId String
-  key        String
-  response   Json?
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
+model IdempotencyRecord {
+  id           String               @id @default(uuid())
+  businessId   String
+  key          String
+  operation    IdempotencyOperation
+  bookingId    String
+  requestHash  String
+  status       IdempotencyStatus
+  statusCode   Int
+  responseBody Json
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@unique([businessId, key])
-  @@map("idempotency_keys")
+  @@index([bookingId])
+  @@map("idempotency_records")
 }
