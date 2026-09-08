@@ -82,6 +82,28 @@ async function applyInvariants() {
       END IF;
     END $$;
     `,
+    `
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_dispatch_line_quantities'
+      ) THEN
+        ALTER TABLE "dispatch_lines" 
+        ADD CONSTRAINT "chk_dispatch_line_quantities" 
+        CHECK ("expectedQty" > 0 AND "dispatchedQty" >= 0 AND "dispatchedQty" <= "expectedQty");
+      END IF;
+    END $$;
+    `,
+    `
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_return_line_quantities_balanced'
+      ) THEN
+        ALTER TABLE "return_lines" 
+        ADD CONSTRAINT "chk_return_line_quantities_balanced" 
+        CHECK ("expectedQty" > 0 AND "returnedGoodQty" >= 0 AND "damagedQty" >= 0 AND "missingQty" >= 0 AND ("returnedGoodQty" + "damagedQty" + "missingQty" = "expectedQty"));
+      END IF;
+    END $$;
+    `,
     `CREATE INDEX IF NOT EXISTS "idx_inventory_reservation_overlap" ON "inventory_reservations" USING GIST ("businessId", "inventoryItemId", "period");`,
     `CREATE INDEX IF NOT EXISTS "idx_booking_period" ON "bookings" USING GIST ("period");`
   ];

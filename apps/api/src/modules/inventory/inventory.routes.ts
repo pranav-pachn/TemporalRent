@@ -28,6 +28,24 @@ inventoryRouter.get(
   (req, res) => inventoryController.movements(req, res)
 );
 
+inventoryRouter.get(
+  '/:id/reservations',
+  authorize(UserRole.OWNER, UserRole.ADMIN, UserRole.SALES, UserRole.WAREHOUSE),
+  (req, res) => inventoryController.reservations(req, res)
+);
+
+inventoryRouter.get(
+  '/:id/bookings',
+  authorize(UserRole.OWNER, UserRole.ADMIN, UserRole.SALES, UserRole.WAREHOUSE),
+  (req, res) => inventoryController.itemBookings(req, res)
+);
+
+inventoryRouter.get(
+  '/:id/damage',
+  authorize(UserRole.OWNER, UserRole.ADMIN, UserRole.SALES, UserRole.WAREHOUSE),
+  (req, res) => inventoryController.damageHistory(req, res)
+);
+
 // Mutate inventory: Restricted to OWNER, ADMIN, and WAREHOUSE
 inventoryRouter.post(
   '/',

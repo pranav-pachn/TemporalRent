@@ -81,9 +81,9 @@ describe('Phase 11: Booking Domain', () => {
     expect(reservations[0].status).toBe('CANCELLED');
 
     // Verify audit event
-    const audits = await prisma.auditEvent.findMany({ where: { recordId: bookingId } });
+    const audits = await prisma.auditEvent.findMany({ where: { entityId: bookingId, entityType: 'BOOKING', action: 'CANCEL' } });
     expect(audits.length).toBe(1);
-    expect(audits[0].action).toBe('UPDATE');
+    expect(audits[0].action).toBe('CANCEL');
     
     const afterPayload = audits[0].after as any;
     expect(afterPayload.status).toBe('CANCELLED');
@@ -99,7 +99,7 @@ describe('Phase 11: Booking Domain', () => {
     expect(res.body.code).toBe('INVALID_STATUS_TRANSITION');
 
     // Should not create duplicate audit logs
-    const audits = await prisma.auditEvent.findMany({ where: { recordId: bookingId } });
+    const audits = await prisma.auditEvent.findMany({ where: { entityId: bookingId, entityType: 'BOOKING', action: 'CANCEL' } });
     expect(audits.length).toBe(1); 
   });
 });

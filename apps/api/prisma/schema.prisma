@@ -43,6 +43,8 @@ enum MovementType {
   CHECK_OUT
   CHECK_IN
   DAMAGE_WRITE_OFF
+  DISPATCH
+  RETURN_GOOD
 }
 
 enum DamageStatus {
@@ -63,11 +65,49 @@ enum ReservationStatus {
   CANCELLED
 }
 
+enum DispatchStatus {
+  READY
+  PICKING
+  DISPATCHED
+  CANCELLED
+}
+
+enum ReturnStatus {
+  INSPECTION
+  COMPLETED
+}
+
+
 enum AuditAction {
   CREATE
   UPDATE
   DELETE
-  LOGIN
+  CONFIRM
+  CANCEL
+  RESCHEDULE
+  START_PICKING
+  DISPATCH
+  RETURN
+  DAMAGE
+  OVERRIDE
+}
+
+enum AuditEntityType {
+  BUSINESS
+  USER
+  CUSTOMER
+  INVENTORY_ITEM
+  PACKAGE
+  PACKAGE_VERSION
+  BOOKING
+  BOOKING_LINE
+  BOOKING_ITEM_DEMAND
+  INVENTORY_RESERVATION
+  DISPATCH
+  DISPATCH_LINE
+  RETURN
+  RETURN_LINE
+  DAMAGE_REPORT
 }
 
 enum IdempotencyOperation {
@@ -93,6 +133,7 @@ model Business {
   name      String
   slug                       String   @unique
   plan                       String   @default("FREE")
+  timezone                   String   @default("UTC")
   defaultBufferBeforeMinutes Int      @default(0)
   defaultBufferAfterMinutes  Int      @default(0)
   createdAt                  DateTime @default(now())
@@ -112,25 +153,61 @@ model Business {
   damageReports        DamageReport[]
   auditEvents          AuditEvent[]
   idempotencyRecords   IdempotencyRecord[]
+  dispatches           Dispatch[]
+  returns              Return[]
 
   @@map("businesses")
 }
 
 model User {
-  id           String   @id @default(uuid())
-  businessId   String
+  id           String    @id @default(uuid())
+  businessId   String?
   email        String
-  passwordHash String
-  role         UserRole @default(SALES)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  name         String?
+  avatarUrl    String?
+  passwordHash String?
+  role         UserRole  @default(SALES)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business     Business?       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  oauthAccounts OAuthAccount[]
+  sessions      Session[]
+
   inventoryMovements InventoryMovement[]
   bookings           Booking[]
+  auditEvents        AuditEvent[]
 
   @@unique([businessId, email])
   @@map("users")
+}
+
+model OAuthAccount {
+  id                String   @id @default(uuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("oauth_accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  businessId   String?
+  tokenHash    String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("sessions")
 }
 
 model Customer {
@@ -195,6 +272,8 @@ model InventoryItem {
   inventoryMovements    InventoryMovement[]
   damageReports         DamageReport[]
   bookingLines          BookingLine[]
+  dispatchLines         DispatchLine[]
+  returnLines           ReturnLine[]
 
   @@unique([businessId, sku])
   @@index([businessId])
@@ -285,6 +364,8 @@ model Booking {
   inventoryReservations InventoryReservation[]
   inventoryMovements    InventoryMovement[]
   damageReports         DamageReport[]
+  dispatch              Dispatch?
+  return                Return?
 
   @@index([businessId, status])
   @@index([businessId, createdAt])
@@ -324,6 +405,7 @@ model BookingItemDemand {
   booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
   inventoryReservation InventoryReservation?
+  dispatchLines DispatchLine[]
 
   @@map("booking_item_demands")
 }
@@ -379,7 +461,10 @@ model DamageReport {
   businessId      String
   inventoryItemId String
   bookingId       String?
+  returnLineId    String?
   quantityDamaged Int
+  quantity        Int          @default(1)
+  severity        String?
   status          DamageStatus @default(REPORTED)
   description     String?
   createdAt       DateTime     @default(now())
@@ -388,8 +473,86 @@ model DamageReport {
   business      Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
   booking       Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  returnLine    ReturnLine?   @relation(fields: [returnLineId], references: [id], onDelete: SetNull)
 
   @@map("damage_reports")
+}
+
+// -----------------------------------------------------------------------------
+// Warehouse Dispatch & Returns Domain
+// -----------------------------------------------------------------------------
+
+model Dispatch {
+  id           String         @id @default(uuid())
+  businessId   String
+  bookingId    String         @unique
+  status       DispatchStatus @default(READY)
+  dispatchedAt DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  booking  Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  lines    DispatchLine[]
+
+  @@map("dispatches")
+}
+
+model DispatchLine {
+  id                  String   @id @default(uuid())
+  dispatchId          String
+  inventoryItemId     String
+  bookingItemDemandId String
+  expectedQty         Int
+  dispatchedQty       Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  dispatch          Dispatch          @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  inventoryItem     InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  bookingItemDemand BookingItemDemand @relation(fields: [bookingItemDemandId], references: [id], onDelete: Cascade)
+  returnLines       ReturnLine[]
+
+  @@unique([dispatchId, bookingItemDemandId])
+  @@map("dispatch_lines")
+}
+
+model Return {
+  id                String       @id @default(uuid())
+  businessId        String
+  bookingId         String       @unique
+  status            ReturnStatus @default(INSPECTION)
+  inspectedAt       DateTime?
+  inspectedByUserId String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  business      Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  booking       Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  lines         ReturnLine[]
+
+  @@map("returns")
+}
+
+model ReturnLine {
+  id              String   @id @default(uuid())
+  returnId        String
+  dispatchLineId  String
+  inventoryItemId String
+  expectedQty     Int
+  returnedGoodQty Int      @default(0)
+  damagedQty      Int      @default(0)
+  missingQty      Int      @default(0)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  return        Return         @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  dispatchLine  DispatchLine   @relation(fields: [dispatchLineId], references: [id], onDelete: Restrict)
+  inventoryItem InventoryItem  @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  damageReports DamageReport[]
+
+  @@map("return_lines")
 }
 
 // -----------------------------------------------------------------------------
@@ -397,18 +560,26 @@ model DamageReport {
 // -----------------------------------------------------------------------------
 
 model AuditEvent {
-  id         String      @id @default(uuid())
+  id         String          @id @default(uuid())
   businessId String
+  bookingId  String?
   userId     String?
   action     AuditAction
-  tableName  String
-  recordId   String
+  entityType AuditEntityType
+  entityId   String
   before     Json?
   after      Json?
-  createdAt  DateTime    @default(now())
+  reason     String?
+  metadata   Json?
+  createdAt  DateTime        @default(now())
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@index([businessId, createdAt])
+  @@index([businessId, bookingId, createdAt])
+  @@index([businessId, entityType, entityId])
+  @@index([businessId, action, createdAt])
   @@map("audit_events")
 }
 

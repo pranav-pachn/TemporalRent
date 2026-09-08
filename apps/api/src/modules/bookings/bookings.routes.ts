@@ -3,6 +3,9 @@ import { BookingsController } from './bookings.controller';
 import { authenticate } from '../../middleware/authenticate';
 
 import { AdvisoryController } from '../availability/advisory.controller';
+import dispatchRoutes from '../dispatch/dispatch.routes';
+import returnsRoutes from '../returns/returns.routes';
+import { auditController } from '../audit/audit.routes';
 
 const router = Router();
 const controller = new BookingsController();
@@ -16,8 +19,9 @@ router.post('/', (req, res) => controller.createDraft(req, res));
 router.get('/', (req, res) => controller.getList(req, res));
 router.post('/:id/quote', (req, res) => controller.quote(req, res));
 router.post('/:id/confirm', (req, res) => controller.confirm(req, res));
-router.post('/:id/dispatch', (req, res) => controller.dispatchBooking(req, res));
-router.post('/:id/return', (req, res) => controller.returnBooking(req, res));
+router.use('/:id/dispatch', dispatchRoutes);
+router.use('/:id/return', returnsRoutes);
+router.get('/:id/audit', (req, res) => auditController.getBookingTimeline(req, res));
 router.post('/:id/complete', (req, res) => controller.complete(req, res));
 router.post('/:id/cancel', (req, res) => controller.cancel(req, res));
 router.post('/:id/reschedule', (req, res) => controller.reschedule(req, res));

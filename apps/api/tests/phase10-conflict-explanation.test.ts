@@ -114,8 +114,8 @@ describe('Phase 10: Conflict Explanation Layer', () => {
   });
 
   it('guarantees zero database mutations during availability checks', async () => {
-    const reservationsBefore = await prisma.inventoryReservation.count();
-    const bookingsBefore = await prisma.booking.count();
+    const reservationsBefore = await prisma.inventoryReservation.count({ where: { booking: { businessId } } });
+    const bookingsBefore = await prisma.booking.count({ where: { businessId } });
 
     const res = await request(app)
       .post('/api/availability/check')
@@ -130,8 +130,8 @@ describe('Phase 10: Conflict Explanation Layer', () => {
 
     expect(res.status).toBe(200);
 
-    const reservationsAfter = await prisma.inventoryReservation.count();
-    const bookingsAfter = await prisma.booking.count();
+    const reservationsAfter = await prisma.inventoryReservation.count({ where: { booking: { businessId } } });
+    const bookingsAfter = await prisma.booking.count({ where: { businessId } });
 
     expect(reservationsAfter).toBe(reservationsBefore);
     expect(bookingsAfter).toBe(bookingsBefore);

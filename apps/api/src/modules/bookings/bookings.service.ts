@@ -7,6 +7,9 @@ import { ApiError } from '../../lib/errors';
 import { ReservationsRepository } from '../reservations/reservations.repository';
 import { AvailabilityRepository, CandidateItemWindow } from '../availability/availability.repository';
 import { BookingLineInput } from '../package-expansion/package-expansion.types';
+import { AuditService } from '../audit/audit.service';
+
+const auditService = new AuditService();
 
 export class BookingsService {
   async createDraftBooking(businessId: string, createdByUserId: string, input: CreateBookingInput) {
@@ -113,15 +116,15 @@ export class BookingsService {
       `;
 
       // 4. Audit Event
-      await tx.auditEvent.create({
-        data: {
-          businessId,
-          userId,
-          action: 'UPDATE',
-          tableName: 'bookings',
-          recordId: bookingId,
-          after: { status: targetStatus }
-        }
+      await auditService.recordAuditEvent(tx, {
+        businessId,
+        userId,
+        bookingId,
+        action: AuditAction.UPDATE,
+        entityType: 'BOOKING',
+        entityId: bookingId,
+        before: { status: booking.status },
+        after: { status: targetStatus }
       });
 
       return { id: bookingId, status: targetStatus };
@@ -167,18 +170,16 @@ export class BookingsService {
       `;
 
       // 6. Audit Event
-      await tx.auditEvent.create({
-        data: {
-          businessId,
-          userId,
-          action: 'UPDATE',
-          tableName: 'bookings',
-          recordId: bookingId,
-          after: { 
-            status: 'CANCELLED',
-            reason: reason || 'User requested cancellation'
-          }
-        }
+      await auditService.recordAuditEvent(tx, {
+        businessId,
+        userId,
+        bookingId,
+        action: AuditAction.CANCEL,
+        entityType: 'BOOKING',
+        entityId: bookingId,
+        before: { status: booking.status },
+        after: { status: 'CANCELLED' },
+        reason: reason || 'User requested cancellation'
       });
 
       return { id: bookingId, status: 'CANCELLED' };
@@ -379,18 +380,18 @@ export class BookingsService {
       `;
 
       // 8. Record Audit
-      await tx.auditEvent.create({
-        data: {
-          businessId,
-          userId,
-          action: 'UPDATE',
-          tableName: 'bookings',
-          recordId: bookingId,
-          after: { 
-            status: 'CONFIRMED',
-            eventStart: baseStart.toISOString(),
-            eventEnd: baseEnd.toISOString()
-          }
+      await auditService.recordAuditEvent(tx, {
+        businessId,
+        userId,
+        bookingId,
+        action: AuditAction.RESCHEDULE,
+        entityType: 'BOOKING',
+        entityId: bookingId,
+        before: { eventStart: booking.eventStart.toISOString(), eventEnd: booking.eventEnd.toISOString() },
+        after: { 
+          status: 'CONFIRMED',
+          eventStart: baseStart.toISOString(),
+          eventEnd: baseEnd.toISOString()
         }
       });
 

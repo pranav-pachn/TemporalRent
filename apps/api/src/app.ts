@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 
 import { authRouter } from './modules/auth/auth.routes';
 import { inventoryRouter } from './modules/inventory/inventory.routes';
@@ -8,6 +9,12 @@ import { inventoryRouter } from './modules/inventory/inventory.routes';
 import { packageRouter, packageVersionRouter } from './modules/packages/package.routes';
 import { availabilityRouter } from './modules/availability/availability.routes';
 import { bookingsRouter } from './modules/bookings/bookings.routes';
+import { auditRouter } from './modules/audit/audit.routes';
+import dispatchRouter from './modules/dispatch/dispatch.routes';
+import returnRouter from './modules/returns/returns.routes';
+import dashboardRouter from './modules/dashboard/dashboard.routes';
+import { customersRouter } from './modules/customers/customers.routes';
+import { calendarRouter } from './modules/calendar/calendar.routes';
 
 export const app = express();
 
@@ -30,6 +37,7 @@ app.use(
   }),
 );
 app.use(express.json());
+app.use(cookieParser());
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'API is running' });
@@ -55,6 +63,9 @@ app.use('/package-versions', packageVersionRouter);
 app.use('/api/package-versions', packageVersionRouter);
 app.use('/api/v1/package-versions', packageVersionRouter);
 
+// Customers routes
+app.use('/api/v1/customers', customersRouter);
+
 // Availability routes
 app.use('/availability', availabilityRouter);
 app.use('/api/availability', availabilityRouter);
@@ -64,3 +75,18 @@ app.use('/api/v1/availability', availabilityRouter);
 app.use('/bookings', bookingsRouter);
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/v1/bookings', bookingsRouter);
+
+// Dispatch routes (nested under bookings)
+app.use('/api/v1/bookings/:id/dispatch', dispatchRouter);
+
+// Return routes (nested under bookings)
+app.use('/api/v1/bookings/:id/returns', returnRouter);
+
+// Dashboard routes
+app.use('/api/v1/dashboard', dashboardRouter);
+
+// Audit routes
+app.use('/api/v1/audit-events', auditRouter);
+
+// Calendar routes
+app.use('/api/v1/calendar', calendarRouter);

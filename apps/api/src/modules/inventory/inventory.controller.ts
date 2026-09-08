@@ -331,6 +331,65 @@ export class InventoryController {
 
     return res.status(200).json({ data: movements });
   }
+
+  async reservations(req: Request, res: Response) {
+    const businessId = req.auth!.businessId;
+    const { id } = req.params;
+    const { from, to } = req.query;
+
+    if (!from || !to) {
+      return res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message: 'Both "from" and "to" query parameters are required (ISO 8601 strings)',
+      });
+    }
+
+    const reservations = await inventoryService.getItemReservations(
+      businessId, 
+      id, 
+      from as string, 
+      to as string
+    );
+
+    if (!reservations) {
+      return res.status(404).json({
+        code: 'NOT_FOUND',
+        message: 'Inventory item not found',
+      });
+    }
+
+    return res.status(200).json({ data: reservations });
+  }
+
+  async itemBookings(req: Request, res: Response) {
+    const businessId = req.auth!.businessId;
+    const { id } = req.params;
+
+    const bookings = await inventoryService.getItemBookings(businessId, id);
+    if (!bookings) {
+      return res.status(404).json({
+        code: 'NOT_FOUND',
+        message: 'Inventory item not found',
+      });
+    }
+
+    return res.status(200).json({ data: bookings });
+  }
+
+  async damageHistory(req: Request, res: Response) {
+    const businessId = req.auth!.businessId;
+    const { id } = req.params;
+
+    const damageHistory = await inventoryService.getDamageHistory(businessId, id);
+    if (!damageHistory) {
+      return res.status(404).json({
+        code: 'NOT_FOUND',
+        message: 'Inventory item not found',
+      });
+    }
+
+    return res.status(200).json({ data: damageHistory });
+  }
 }
 
 export const inventoryController = new InventoryController();

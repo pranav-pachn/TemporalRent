@@ -1,10 +1,31 @@
-import { PackageVersionStatus } from '@prisma/client';
+import { PackageVersionStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { CreatePackageInput, UpdatePackageInput, CreateVersionInput } from './package.schemas';
 
 export class PackageService {
+  private async attachBookingCounts<T extends { id: string }>(versions: T[]): Promise<(T & { bookingCount: number })[]> {
+    if (!versions.length) return versions as any;
+
+    const versionIds = versions.map((v) => v.id);
+
+    // Using queryRawUnsafe for dynamic IN clause
+    const counts = await prisma.$queryRawUnsafe<{ packageVersionId: string; count: bigint }[]>(
+      `SELECT "packageVersionId", COUNT(DISTINCT "bookingId") as count
+       FROM "booking_lines"
+       WHERE "packageVersionId" IN (${versionIds.map(id => `'${id}'`).join(',')})
+       GROUP BY "packageVersionId"`
+    );
+
+    const countMap = new Map(counts.map((c) => [c.packageVersionId, Number(c.count)]));
+
+    return versions.map((v) => ({
+      ...v,
+      bookingCount: countMap.get(v.id) || 0,
+    }));
+  }
+
   async listPackages(businessId: string) {
-    return prisma.package.findMany({
+    const packages = await prisma.package.findMany({
       where: {
         businessId,
         deletedAt: null,
@@ -30,10 +51,17 @@ export class PackageService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return Promise.all(
+      packages.map(async (pkg) => ({
+        ...pkg,
+        packageVersions: await this.attachBookingCounts(pkg.packageVersions),
+      }))
+    );
   }
 
   async getPackageById(businessId: string, id: string) {
-    return prisma.package.findFirst({
+    const pkg = await prisma.package.findFirst({
       where: {
         id,
         businessId,
@@ -59,6 +87,13 @@ export class PackageService {
         },
       },
     });
+
+    if (!pkg) return null;
+
+    return {
+      ...pkg,
+      packageVersions: await this.attachBookingCounts(pkg.packageVersions),
+    };
   }
 
   async createPackage(businessId: string, data: CreatePackageInput) {
@@ -268,7 +303,7 @@ export class PackageService {
       return null;
     }
 
-    return prisma.packageVersion.findMany({
+    const versions = await prisma.packageVersion.findMany({
       where: {
         packageId,
         businessId,
@@ -289,10 +324,12 @@ export class PackageService {
       },
       orderBy: { versionNumber: 'desc' },
     });
+
+    return this.attachBookingCounts(versions);
   }
 
   async getVersionById(businessId: string, versionId: string) {
-    return prisma.packageVersion.findFirst({
+    const version = await prisma.packageVersion.findFirst({
       where: {
         id: versionId,
         businessId,
@@ -313,6 +350,11 @@ export class PackageService {
         },
       },
     });
+
+    if (!version) return null;
+
+    const [versionWithCount] = await this.attachBookingCounts([version]);
+    return versionWithCount;
   }
 }
 

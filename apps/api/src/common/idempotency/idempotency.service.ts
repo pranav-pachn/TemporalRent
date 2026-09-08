@@ -66,6 +66,7 @@ export class IdempotencyService {
         }
       });
     } catch (error: any) {
+      console.log('IDEMPOTENCY ERROR', error.code, error.name);
       if (error.code === 'P2002') {
         const existing = await prisma.idempotencyRecord.findUnique({
           where: { businessId_key: { businessId, key } }

@@ -1,130 +1,123 @@
 import { UserRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
-import { hashPassword, verifyPassword } from '../../lib/password';
-import { signAccessToken } from '../../lib/jwt';
-import { RegisterInput, LoginInput } from './auth.schemas';
+import { createSession, deleteSession } from '../../lib/session';
+import { exchangeCodeForTokens, verifyGoogleIdToken } from '../../lib/google';
+import { WorkspaceSetupInput } from './auth.schemas';
+import crypto from 'crypto';
 
 export class AuthService {
-  async register(input: RegisterInput) {
+  async generateOAuthState() {
+    return crypto.randomBytes(16).toString('hex');
+  }
+
+  async handleGoogleCallback(code: string) {
+    // 1. Exchange code for tokens
+    const tokens = await exchangeCodeForTokens(code);
+    if (!tokens.id_token) {
+      throw new Error('No ID token returned from Google');
+    }
+
+    // 2. Verify Google ID token
+    const profile = await verifyGoogleIdToken(tokens.id_token);
+
+    // 3. Find OAuth Account
+    let oauthAccount = await prisma.oAuthAccount.findUnique({
+      where: {
+        provider_providerAccountId: {
+          provider: 'GOOGLE',
+          providerAccountId: profile.sub,
+        },
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    let user = oauthAccount?.user;
+    let isNewUser = false;
+
+    // 4. Create User & OAuth Account if not found
+    if (!user) {
+      isNewUser = true;
+      user = await prisma.user.create({
+        data: {
+          email: profile.email,
+          name: profile.name,
+          avatarUrl: profile.picture,
+          role: UserRole.SALES,
+          // businessId remains null
+        },
+      });
+
+      await prisma.oAuthAccount.create({
+        data: {
+          userId: user.id,
+          provider: 'GOOGLE',
+          providerAccountId: profile.sub,
+        },
+      });
+    }
+
+    // 5. Create Session
+    const session = await createSession(user.id, user.businessId);
+
+    // 6. Find Business (if any)
+    const business = user.businessId 
+      ? await prisma.business.findUnique({ where: { id: user.businessId } })
+      : null;
+
+    return {
+      session,
+      user,
+      business,
+      isNewUser,
+    };
+  }
+
+  async setupWorkspace(userId: string, input: WorkspaceSetupInput) {
+    const slug = input.businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    
+    // Check if slug exists
     const existingBusiness = await prisma.business.findUnique({
-      where: { slug: input.businessSlug },
+      where: { slug },
     });
 
     if (existingBusiness) {
       throw new Error('BUSINESS_SLUG_TAKEN');
     }
 
-    const passwordHash = await hashPassword(input.password);
-
     const result = await prisma.$transaction(async (tx) => {
       const business = await tx.business.create({
         data: {
           name: input.businessName,
-          slug: input.businessSlug,
+          slug,
+          timezone: input.timezone,
         },
       });
 
-      const user = await tx.user.create({
+      const user = await tx.user.update({
+        where: { id: userId },
         data: {
           businessId: business.id,
-          email: input.email.toLowerCase(),
-          passwordHash,
           role: UserRole.OWNER,
+          ...(input.name ? { name: input.name } : {}),
         },
+      });
+
+      // Update all user's sessions to include the businessId
+      await tx.session.updateMany({
+        where: { userId },
+        data: { businessId: business.id },
       });
 
       return { business, user };
     });
 
-    const accessToken = await signAccessToken({
-      userId: result.user.id,
-      businessId: result.business.id,
-      role: result.user.role,
-    });
-
-    return {
-      user: {
-        id: result.user.id,
-        email: result.user.email,
-        role: result.user.role,
-        businessId: result.user.businessId,
-      },
-      business: {
-        id: result.business.id,
-        name: result.business.name,
-        slug: result.business.slug,
-      },
-      accessToken,
-    };
+    return result;
   }
 
-  async login(input: LoginInput) {
-    let user;
-
-    if (input.businessSlug) {
-      const business = await prisma.business.findUnique({
-        where: { slug: input.businessSlug },
-      });
-
-      if (!business) {
-        throw new Error('INVALID_CREDENTIALS');
-      }
-
-      user = await prisma.user.findUnique({
-        where: {
-          businessId_email: {
-            businessId: business.id,
-            email: input.email.toLowerCase(),
-          },
-        },
-        include: { business: true },
-      });
-    } else {
-      const users = await prisma.user.findMany({
-        where: { email: input.email.toLowerCase() },
-        include: { business: true },
-      });
-
-      if (users.length === 0) {
-        throw new Error('INVALID_CREDENTIALS');
-      }
-
-      if (users.length > 1) {
-        throw new Error('AMBIGUOUS_TENANT');
-      }
-
-      user = users[0];
-    }
-
-    if (!user) {
-      throw new Error('INVALID_CREDENTIALS');
-    }
-
-    const isValid = await verifyPassword(user.passwordHash, input.password);
-    if (!isValid) {
-      throw new Error('INVALID_CREDENTIALS');
-    }
-
-    const accessToken = await signAccessToken({
-      userId: user.id,
-      businessId: user.businessId,
-      role: user.role,
-    });
-
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        businessId: user.businessId,
-      },
-      business: {
-        id: user.business.id,
-        name: user.business.name,
-        slug: user.business.slug,
-      },
-      accessToken,
-    };
+  async logout(token: string) {
+    await deleteSession(token);
   }
 }
 

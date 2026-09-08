@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, AuditAction } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { ConfirmBookingInput } from './reservations.types';
 import { ReservationsRepository } from './reservations.repository';
@@ -6,6 +6,9 @@ import { AvailabilityRepository, CandidateItemWindow } from '../availability/ava
 import { PackageExpansionService } from '../package-expansion/package-expansion.service';
 import { BookingLineInput } from '../package-expansion/package-expansion.types';
 import { ApiError } from '../../lib/errors';
+import { AuditService } from '../audit/audit.service';
+
+const auditService = new AuditService();
 
 export class ReservationsService {
   private reservationsRepo = new ReservationsRepository();
@@ -163,15 +166,15 @@ export class ReservationsService {
             WHERE "id" = ${bookingId}
           `;
 
-          await tx.auditEvent.create({
-            data: {
-              businessId,
-              userId,
-              action: 'UPDATE',
-              tableName: 'bookings',
-              recordId: bookingId,
-              after: { status: 'CONFIRMED' }
-            }
+          await auditService.recordAuditEvent(tx, {
+            businessId,
+            userId,
+            bookingId,
+            action: AuditAction.CONFIRM,
+            entityType: 'BOOKING',
+            entityId: bookingId,
+            before: { status: 'QUOTED' },
+            after: { status: 'CONFIRMED' }
           });
 
           return { data: { id: bookingId, status: 'CONFIRMED' } };

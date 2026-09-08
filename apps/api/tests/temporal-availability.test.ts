@@ -53,10 +53,10 @@ describe('Phase 7: Temporal Availability Engine', () => {
     const customer = await prisma.customer.create({ data: { businessId, name: 'Cust A' } });
     const bookingId = crypto.randomUUID();
     
-    // Insert Booking and Reservations via raw SQL because Prisma doesn't support tstzrange mutations
+    // Insert Booking and Reservations via raw SQL because Prisma doesn't natively support GiST ranges yet for creation
     await prisma.$executeRaw`
-      INSERT INTO "bookings" ("id", "businessId", "customerId", "status", "period", "createdAt", "updatedAt")
-      VALUES (${bookingId}, ${businessId}, ${customer.id}, 'ACTIVE', tstzrange('2026-10-01 10:00:00+00', '2026-10-01 12:00:00+00', '[)'), NOW(), NOW())
+      INSERT INTO "bookings" ("id", "businessId", "customerId", "status", "effectiveWindow", "createdByUserId", "createdAt", "updatedAt")
+      VALUES (${bookingId}, ${businessId}, ${customer.id}, 'ACTIVE'::"BookingStatus", tstzrange('2026-10-01 10:00:00+00', '2026-10-01 12:00:00+00'), ${user.id}, NOW(), NOW())
     `;
 
     await prisma.$executeRaw`

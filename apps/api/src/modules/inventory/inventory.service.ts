@@ -15,9 +15,24 @@ export class InventoryService {
     item: T
   ) {
     const usableQty = item.totalQty - (item.damagedQty + item.missingQty + item.maintenanceQty);
+    
+    let status: 'HEALTHY' | 'MAINTENANCE' | 'DAMAGED' | 'MISSING' | 'OUT_OF_STOCK' = 'HEALTHY';
+    if (usableQty === 0 && item.totalQty > 0) {
+      status = 'OUT_OF_STOCK';
+    } else if (item.missingQty > 0) {
+      status = 'MISSING';
+    } else if (item.damagedQty > 0) {
+      status = 'DAMAGED';
+    } else if (item.maintenanceQty > 0) {
+      status = 'MAINTENANCE';
+    } else if (item.totalQty === 0) {
+      status = 'OUT_OF_STOCK';
+    }
+
     return {
       ...item,
       usableQty,
+      status,
     };
   }
 
@@ -407,6 +422,114 @@ export class InventoryService {
       orderBy: {
         createdAt: 'desc',
       },
+    });
+  }
+
+  async getItemReservations(businessId: string, id: string, fromDate: string, toDate: string) {
+    const item = await prisma.inventoryItem.findFirst({
+      where: {
+        id,
+        businessId,
+        deletedAt: null,
+      },
+    });
+
+    if (!item) {
+      return null;
+    }
+
+    // Explicitly select and cast tstzrange bounds to avoid Next.js / JSON serialization issues with raw Postgres ranges
+    const reservations = await prisma.$queryRaw`
+      SELECT 
+        ir.id AS "reservationId",
+        ir."bookingId",
+        ir.quantity,
+        ir.status,
+        lower(ir.period) AS "start",
+        upper(ir.period) AS "end",
+        b."eventName",
+        c.name AS "customerName"
+      FROM inventory_reservations ir
+      JOIN bookings b ON ir."bookingId" = b.id
+      JOIN customers c ON b."customerId" = c.id
+      WHERE ir."inventoryItemId" = ${id}
+        AND ir."businessId" = ${businessId}
+        AND ir.status = 'ACTIVE'
+        AND ir.period && tstzrange(${fromDate}::timestamptz, ${toDate}::timestamptz, '[)')
+      ORDER BY lower(ir.period) ASC
+    `;
+
+    return reservations;
+  }
+
+  async getItemBookings(businessId: string, id: string) {
+    const item = await prisma.inventoryItem.findFirst({
+      where: {
+        id,
+        businessId,
+        deletedAt: null,
+      },
+    });
+
+    if (!item) {
+      return null;
+    }
+
+    return prisma.booking.findMany({
+      where: {
+        businessId,
+        OR: [
+          { inventoryReservations: { some: { inventoryItemId: id, status: 'ACTIVE' } } },
+          { bookingItemDemands: { some: { inventoryItemId: id } } }
+        ]
+      },
+      select: {
+        id: true,
+        eventName: true,
+        eventStart: true,
+        eventEnd: true,
+        status: true,
+        customer: {
+          select: {
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        eventStart: 'desc'
+      }
+    });
+  }
+
+  async getDamageHistory(businessId: string, id: string) {
+    const item = await prisma.inventoryItem.findFirst({
+      where: {
+        id,
+        businessId,
+        deletedAt: null,
+      },
+    });
+
+    if (!item) {
+      return null;
+    }
+
+    return prisma.damageReport.findMany({
+      where: {
+        businessId,
+        inventoryItemId: id,
+      },
+      include: {
+        booking: {
+          select: {
+            id: true,
+            eventName: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
     });
   }
 }
