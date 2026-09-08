@@ -81,6 +81,20 @@ export class BookingsController {
     }
   }
 
+  async getById(req: Request, res: Response) {
+    try {
+      const { businessId } = req.auth!;
+      const { id } = req.params;
+      const booking = await bookingsService.getBookingById(businessId, id);
+      if (!booking) {
+        return res.status(404).json({ code: 'BOOKING_NOT_FOUND', error: 'Booking not found' });
+      }
+      res.status(200).json({ data: booking });
+    } catch (error: any) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+  }
+
   private async transition(req: Request, res: Response, targetStatus: any, operation: IdempotencyOperation) {
     try {
       const { businessId, userId } = req.auth!;

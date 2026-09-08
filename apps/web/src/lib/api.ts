@@ -1,7 +1,16 @@
 import { DashboardDTO } from '../types/dashboard';
 import { InventoryItem, InventoryReservation, InventoryBooking, InventoryDamageReport, InventoryMovement } from '../types/inventory';
 import { Package, PackageVersion } from '../types/package';
-import { CreateBookingInput, BookingDTO, AvailabilityResult, CustomerDTO } from '../types/bookings';
+import { CreateBookingInput, BookingDTO, AvailabilityResult, CustomerDTO, BookingLineInput, BookingDetailDTO } from '../types/bookings';
+import { 
+  DispatchDTO, 
+  DispatchStatus, 
+  ReturnsListResponse, 
+  ReturnInspectionDTO, 
+  ReturnInspectionLineInput, 
+  ReturnDTO, 
+  DamageReportDTO 
+} from '../types/warehouse';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -103,6 +112,14 @@ export const apiClient = {
     return apiClient.post(`/api/v1/bookings/${id}/check-availability`, {}, options);
   },
 
+  fetchBookingsList: async (page = 1, limit = 50, options: RequestInit = {}): Promise<{ data: BookingDTO[]; total: number }> => {
+    return apiClient.get(`/api/v1/bookings?page=${page}&limit=${limit}`, options);
+  },
+
+  fetchBookingById: async (id: string, options: RequestInit = {}): Promise<{ data: BookingDetailDTO }> => {
+    return apiClient.get(`/api/v1/bookings/${id}`, options);
+  },
+
   quoteBooking: async (id: string, options: RequestInit = {}): Promise<{ data: BookingDTO }> => {
     return apiClient.post(`/api/v1/bookings/${id}/quote`, {}, options);
   },
@@ -115,6 +132,69 @@ export const apiClient = {
         'Idempotency-Key': idempotencyKey,
       }
     });
+  },
+
+  // Warehouse Dispatches
+  fetchDispatches: async (status?: DispatchStatus, options: RequestInit = {}): Promise<{ data: DispatchDTO[] }> => {
+    const url = status ? `/api/v1/dispatches?status=${status}` : '/api/v1/dispatches';
+    return apiClient.get(url, options);
+  },
+
+  fetchDispatchById: async (id: string, options: RequestInit = {}): Promise<{ data: DispatchDTO }> => {
+    return apiClient.get(`/api/v1/dispatches/${id}`, options);
+  },
+
+  prepareDispatch: async (bookingId: string, options: RequestInit = {}): Promise<{ data: DispatchDTO }> => {
+    return apiClient.post(`/api/v1/bookings/${bookingId}/dispatch/prepare`, {}, options);
+  },
+
+  startPicking: async (bookingId: string, options: RequestInit = {}): Promise<{ data: DispatchDTO }> => {
+    return apiClient.post(`/api/v1/bookings/${bookingId}/dispatch/start-picking`, {}, options);
+  },
+
+  confirmDispatch: async (
+    bookingId: string, 
+    idempotencyKey: string, 
+    lines: Array<{ dispatchLineId: string; dispatchedQty: number }>,
+    options: RequestInit = {}
+  ): Promise<{ data: DispatchDTO }> => {
+    return apiClient.post(`/api/v1/bookings/${bookingId}/dispatch/confirm`, { lines }, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Idempotency-Key': idempotencyKey,
+      }
+    });
+  },
+
+  // Warehouse Returns
+  fetchReturnsList: async (options: RequestInit = {}): Promise<ReturnsListResponse> => {
+    return apiClient.get('/api/v1/returns', options);
+  },
+
+  fetchReturnInspection: async (bookingId: string, options: RequestInit = {}): Promise<{ data: ReturnInspectionDTO }> => {
+    return apiClient.get(`/api/v1/returns/${bookingId}/inspection`, options);
+  },
+
+  completeReturn: async (
+    bookingId: string,
+    idempotencyKey: string,
+    lines: ReturnInspectionLineInput[],
+    options: RequestInit = {}
+  ): Promise<{ data: ReturnDTO }> => {
+    return apiClient.post(`/api/v1/bookings/${bookingId}/return/complete`, { lines }, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Idempotency-Key': idempotencyKey,
+      }
+    });
+  },
+
+  // Warehouse Damage
+  fetchDamageReports: async (type?: 'ALL' | 'DAMAGED' | 'MISSING', options: RequestInit = {}): Promise<{ data: DamageReportDTO[] }> => {
+    const url = type && type !== 'ALL' ? `/api/v1/damage-reports?type=${type}` : '/api/v1/damage-reports';
+    return apiClient.get(url, options);
   },
 
   // Calendar Endpoints

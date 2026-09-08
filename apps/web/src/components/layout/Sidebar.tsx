@@ -6,18 +6,11 @@ import { Calendar, LayoutDashboard, Package, Boxes, Truck, Undo2, AlertTriangle,
 
 const navGroups = [
   {
-    label: 'OVERVIEW',
+    label: 'OPERATIONS',
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { name: 'Calendar', href: '/calendar', icon: CalendarDays },
-    ],
-  },
-  {
-    label: 'OPERATIONS',
-    items: [
       { name: 'Bookings', href: '/bookings', icon: ScrollText },
-      { name: 'Inventory', href: '/inventory', icon: Boxes },
-      { name: 'Packages', href: '/packages', icon: Package },
     ],
   },
   {
@@ -26,6 +19,13 @@ const navGroups = [
       { name: 'Dispatch', href: '/dispatch', icon: Truck },
       { name: 'Returns', href: '/returns', icon: Undo2 },
       { name: 'Damage', href: '/damage', icon: AlertTriangle },
+    ],
+  },
+  {
+    label: 'INVENTORY',
+    items: [
+      { name: 'Inventory', href: '/inventory', icon: Boxes },
+      { name: 'Packages', href: '/packages', icon: Package },
     ],
   },
   {

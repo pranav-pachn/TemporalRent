@@ -11,7 +11,10 @@ import { availabilityRouter } from './modules/availability/availability.routes';
 import { bookingsRouter } from './modules/bookings/bookings.routes';
 import { auditRouter } from './modules/audit/audit.routes';
 import dispatchRouter from './modules/dispatch/dispatch.routes';
+import dispatchesRouter from './modules/dispatch/dispatches.routes';
 import returnRouter from './modules/returns/returns.routes';
+import returnsListRouter from './modules/returns/returns.list.routes';
+import { damageReportsRouter } from './modules/damage/damage-reports.routes';
 import dashboardRouter from './modules/dashboard/dashboard.routes';
 import { customersRouter } from './modules/customers/customers.routes';
 import { calendarRouter } from './modules/calendar/calendar.routes';
@@ -76,11 +79,16 @@ app.use('/bookings', bookingsRouter);
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/v1/bookings', bookingsRouter);
 
-// Dispatch routes (nested under bookings)
+// Dispatch routes
 app.use('/api/v1/bookings/:id/dispatch', dispatchRouter);
+app.use('/api/v1/dispatches', dispatchesRouter);
 
-// Return routes (nested under bookings)
+// Return routes
 app.use('/api/v1/bookings/:id/returns', returnRouter);
+app.use('/api/v1/returns', returnsListRouter);
+
+// Damage Reports routes
+app.use('/api/v1/damage-reports', damageReportsRouter);
 
 // Dashboard routes
 app.use('/api/v1/dashboard', dashboardRouter);

@@ -233,4 +233,144 @@ export class ReturnsService {
       return returnRecord;
     });
   }
+
+  async listCompletedReturns(businessId: string) {
+    return prisma.return.findMany({
+      where: { businessId, status: 'COMPLETED' },
+      include: {
+        booking: {
+          include: {
+            customer: true,
+          },
+        },
+        lines: {
+          include: {
+            inventoryItem: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+              },
+            },
+            damageReports: true,
+          },
+        },
+      },
+      orderBy: { inspectedAt: 'desc' },
+    });
+  }
+
+  async listAwaitingReturns(businessId: string) {
+    return prisma.booking.findMany({
+      where: {
+        businessId,
+        status: 'DISPATCHED',
+      },
+      include: {
+        customer: true,
+        dispatch: {
+          include: {
+            lines: {
+              where: { dispatchedQty: { gt: 0 } },
+              include: {
+                inventoryItem: {
+                  select: {
+                    id: true,
+                    name: true,
+                    sku: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { eventEnd: 'asc' },
+    });
+  }
+
+  async getReturnInspectionData(businessId: string, bookingId: string) {
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, businessId },
+      include: {
+        customer: true,
+        dispatch: {
+          include: {
+            lines: {
+              include: {
+                inventoryItem: {
+                  select: {
+                    id: true,
+                    name: true,
+                    sku: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!booking) {
+      const error = new Error('Booking not found');
+      (error as any).code = 'NOT_FOUND';
+      throw error;
+    }
+    if (!booking.dispatch) {
+      const error = new Error('Dispatch record not found for booking');
+      (error as any).code = 'NOT_FOUND';
+      throw error;
+    }
+
+    return {
+      booking: {
+        id: booking.id,
+        eventName: booking.eventName,
+        eventStart: booking.eventStart,
+        eventEnd: booking.eventEnd,
+        status: booking.status,
+        customer: booking.customer,
+      },
+      dispatch: {
+        id: booking.dispatch.id,
+        status: booking.dispatch.status,
+        dispatchedAt: booking.dispatch.dispatchedAt,
+        lines: booking.dispatch.lines
+          .filter((l) => l.dispatchedQty > 0)
+          .map((l) => ({
+            dispatchLineId: l.id,
+            inventoryItemId: l.inventoryItemId,
+            inventoryItemName: l.inventoryItem.name,
+            sku: l.inventoryItem.sku,
+            expectedReturnQty: l.dispatchedQty,
+          })),
+      },
+    };
+  }
+
+  async getReturnById(businessId: string, id: string) {
+    return prisma.return.findFirst({
+      where: { id, businessId },
+      include: {
+        booking: {
+          include: {
+            customer: true,
+          },
+        },
+        lines: {
+          include: {
+            inventoryItem: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+              },
+            },
+            damageReports: true,
+          },
+        },
+      },
+    });
+  }
 }

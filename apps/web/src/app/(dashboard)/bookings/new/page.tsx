@@ -3,12 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
-import { CustomerDTO, BookingLineInput, AvailabilityResult } from '@/types/bookings';
+import { CustomerDTO, BookingLineInput, AvailabilityResult, InventoryConflictErrorResponse } from '@/types/bookings';
 import { Package } from '@/types/package';
 import { InventoryItem } from '@/types/inventory';
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { v4 as uuidv4 } from 'uuid';
+import { ConflictModal } from '@/components/bookings/ConflictModal';
 
 export default function BookingBuilderPage() {
   const router = useRouter();
@@ -33,7 +33,7 @@ export default function BookingBuilderPage() {
   // Confirmation State
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [conflictError, setConflictError] = useState<any | null>(null);
+  const [conflictError, setConflictError] = useState<InventoryConflictErrorResponse | null>(null);
   const [status, setStatus] = useState<'DRAFT' | 'CONFIRMED'>('DRAFT');
   
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -153,12 +153,12 @@ export default function BookingBuilderPage() {
       await apiClient.quoteBooking(bookingId);
       
       // 3. Transactional Confirm
-      const idempotencyKey = uuidv4();
+      const idempotencyKey = crypto.randomUUID();
       await apiClient.confirmBooking(bookingId, idempotencyKey);
       
       setStatus('CONFIRMED');
       setTimeout(() => {
-        router.push('/bookings');
+        router.push(`/bookings/${bookingId}`);
       }, 1500);
       
     } catch (e: any) {
@@ -208,33 +208,25 @@ export default function BookingBuilderPage() {
       )}
 
       {conflictError && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 space-y-4">
-          <div className="flex items-center text-red-400 font-medium">
-            <AlertTriangle className="w-5 h-5 mr-2" />
-            Reservation could not be confirmed
-          </div>
-          <p className="text-red-300 text-sm">Inventory availability changed since your preview.</p>
-          
-          <div className="space-y-3 mt-4">
-            {conflictError.items?.map((item: any) => (
-              <div key={item.inventoryItemId} className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-sm">
-                <div className="font-medium text-white mb-2">{getInventoryName(item.inventoryItemId)}</div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div><span className="text-neutral-500">Required:</span> <span className="text-white">{item.required}</span></div>
-                  <div><span className="text-neutral-500">Available:</span> <span className="text-white">{item.available}</span></div>
-                  <div><span className="text-red-400">Shortage:</span> <span className="text-red-400">{item.shortage}</span></div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <button 
-            onClick={() => setConflictError(null)} // User can revise lines and try again
-            className="mt-4 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            Revise Booking
-          </button>
-        </div>
+        <ConflictModal
+          error={conflictError}
+          isRefreshing={checkingAvailability}
+          onClose={() => setConflictError(null)}
+          onChangeQuantity={() => {
+            setConflictError(null);
+            // In a fuller implementation, we could highlight rows here
+          }}
+          onChangeDate={() => {
+            setConflictError(null);
+            // Let the user scroll to the date section
+          }}
+          onRefresh={async () => {
+            // Trigger availability check, keep modal open to show loading, then maybe dismiss
+            // The useEffect will pick up if we set some refresh flag, but we can just clear the error
+            // so the real-time availability takes over. The UI handles the rest.
+            setConflictError(null);
+          }}
+        />
       )}
 
       <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6 space-y-6">

@@ -221,4 +221,86 @@ const auditService = new AuditService();export class DispatchService {
       return updatedDispatch;
     });
   }
+
+  async listDispatches(businessId: string, status?: any) {
+    return prisma.dispatch.findMany({
+      where: {
+        businessId,
+        ...(status ? { status } : {}),
+      },
+      include: {
+        booking: {
+          include: {
+            customer: true,
+          },
+        },
+        lines: {
+          include: {
+            inventoryItem: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getDispatchById(businessId: string, id: string) {
+    return prisma.dispatch.findFirst({
+      where: {
+        id,
+        businessId,
+      },
+      include: {
+        booking: {
+          include: {
+            customer: true,
+          },
+        },
+        lines: {
+          include: {
+            inventoryItem: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getDispatchByBookingId(businessId: string, bookingId: string) {
+    return prisma.dispatch.findFirst({
+      where: {
+        bookingId,
+        businessId,
+      },
+      include: {
+        booking: {
+          include: {
+            customer: true,
+          },
+        },
+        lines: {
+          include: {
+            inventoryItem: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
 }

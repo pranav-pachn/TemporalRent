@@ -17,6 +17,7 @@ router.post('/:id/check-availability', (req, res) => advisoryController.checkBoo
 
 router.post('/', (req, res) => controller.createDraft(req, res));
 router.get('/', (req, res) => controller.getList(req, res));
+router.get('/:id', (req, res) => controller.getById(req, res));
 router.post('/:id/quote', (req, res) => controller.quote(req, res));
 router.post('/:id/confirm', (req, res) => controller.confirm(req, res));
 router.use('/:id/dispatch', dispatchRoutes);

@@ -32,4 +32,6 @@ export interface Package {
   updatedAt: string;
   deletedAt: string | null;
   packageVersions: PackageVersion[];
+  publishedVersionId?: string;
+  versionCount?: number;
 }

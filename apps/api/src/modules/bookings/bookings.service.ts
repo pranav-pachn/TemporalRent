@@ -203,6 +203,32 @@ export class BookingsService {
     return { data, total, page, limit };
   }
 
+  async getBookingById(businessId: string, bookingId: string) {
+    return prisma.booking.findFirst({
+      where: { id: bookingId, businessId },
+      include: {
+        customer: true,
+        bookingLines: {
+          include: {
+            packageVersion: {
+              include: { package: true }
+            },
+            inventoryItem: true
+          }
+        },
+        bookingItemDemands: {
+          include: {
+            inventoryItem: true
+          }
+        },
+        inventoryReservations: {
+          where: { status: 'ACTIVE' },
+          include: { inventoryItem: true }
+        }
+      }
+    });
+  }
+
   async rescheduleBooking(businessId: string, bookingId: string, userId: string, input: { eventStart: string, eventEnd: string }) {
     const reservationsRepo = new ReservationsRepository();
     const availabilityRepo = new AvailabilityRepository();
@@ -299,11 +325,22 @@ export class BookingsService {
           shortageCandidates.push(candidate);
           inventoryConflictItems.push({
             inventoryItemId: candidate.inventoryItemId,
+            inventoryItemName: lockedItem.name,
+            requiredQty: demand.quantity,
+            usableQty: usable,
+            reservedQty: reserved,
+            availableQty: usable - reserved,
+            shortageQty: Math.max(0, demand.quantity - Math.max(0, usable - reserved)),
+            period: {
+              start: candidate.effectiveStart.toISOString(),
+              end: candidate.effectiveEnd.toISOString(),
+            },
+            // For backwards compatibility:
             required: demand.quantity,
             usable,
             reserved,
-            available,
-            shortage: demand.quantity - available,
+            available: Math.max(0, usable - reserved),
+            shortage: Math.max(0, demand.quantity - Math.max(0, usable - reserved)),
           });
         }
       }
@@ -311,17 +348,35 @@ export class BookingsService {
       if (inventoryConflictItems.length > 0) {
         const apiError: any = new ApiError(409, 'INVENTORY_CONFLICT', 'Booking cannot be rescheduled due to inventory shortages.');
         const conflictDetails = await availabilityRepo.findOverlappingReservationDetails(businessId, shortageCandidates, bookingId);
+        
+        const conflictsList = inventoryConflictItems.map(item => {
+          const itemConflicts = conflictDetails
+            .filter(d => d.inventoryItemId === item.inventoryItemId)
+            .map(detail => ({
+              reservationId: detail.id,
+              bookingId: detail.bookingId,
+              bookingName: detail.eventName || 'Untitled Booking',
+              eventName: detail.eventName,
+              start: detail.effectiveStart.toISOString(),
+              end: detail.effectiveEnd.toISOString(),
+              quantity: detail.quantity,
+            }));
+
+          return {
+            inventoryItemId: item.inventoryItemId,
+            inventoryItemName: item.inventoryItemName,
+            requiredQty: item.requiredQty,
+            usableQty: item.usableQty,
+            reservedQty: item.reservedQty,
+            availableQty: item.availableQty,
+            shortageQty: item.shortageQty,
+            period: item.period,
+            conflictingReservations: itemConflicts,
+          };
+        });
+
         apiError.items = inventoryConflictItems;
-        apiError.conflicts = conflictDetails.map(detail => ({
-          reservationId: detail.id,
-          bookingId: detail.bookingId,
-          eventName: detail.eventName,
-          quantity: detail.quantity,
-          period: {
-            start: detail.effectiveStart.toISOString(),
-            end: detail.effectiveEnd.toISOString(),
-          }
-        }));
+        apiError.conflicts = conflictsList;
         throw apiError;
       }
 

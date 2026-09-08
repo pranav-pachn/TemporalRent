@@ -7,7 +7,7 @@ import { AvailabilityResult, AvailabilityItemResult, BookingDTO } from '@/types/
 import { InventoryItem, InventoryReservation } from '@/types/inventory';
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
-import { v4 as uuidv4 } from 'uuid';
+import { ConflictModal } from '@/components/bookings/ConflictModal';
 
 export default function BookingPreviewPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function BookingPreviewPage({ params }: { params: { id: string } 
   
   const [booking, setBooking] = useState<BookingDTO | null>(null);
   const [status, setStatus] = useState<'DRAFT' | 'QUOTED' | 'CONFIRMED'>('DRAFT');
-  const [idempotencyKey] = useState(uuidv4());
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
   
   const [submitting, setSubmitting] = useState(false);
 
@@ -114,33 +114,32 @@ export default function BookingPreviewPage({ params }: { params: { id: string } 
       )}
 
       {conflictError && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 space-y-4">
-          <div className="flex items-center text-red-400 font-medium">
-            <AlertTriangle className="w-5 h-5 mr-2" />
-            Reservation could not be confirmed
-          </div>
-          <p className="text-red-300 text-sm">Inventory availability changed since your preview.</p>
-          
-          <div className="space-y-3 mt-4">
-            {conflictError.items?.map((item: any) => (
-              <div key={item.inventoryItemId} className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-sm">
-                <div className="font-medium text-white mb-2">{inventoryMap[item.inventoryItemId]?.name || 'Unknown Item'}</div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div><span className="text-neutral-500">Required:</span> <span className="text-white">{item.required}</span></div>
-                  <div><span className="text-neutral-500">Available:</span> <span className="text-white">{item.available}</span></div>
-                  <div><span className="text-red-400">Shortage:</span> <span className="text-red-400">{item.shortage}</span></div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <button 
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            Refresh Availability
-          </button>
-        </div>
+        <ConflictModal
+          error={conflictError}
+          isRefreshing={submitting}
+          onClose={() => setConflictError(null)}
+          onChangeQuantity={() => {
+            // Usually we'd go back to the builder
+            router.push(`/bookings/new`); 
+          }}
+          onChangeDate={() => {
+            router.push(`/bookings/new`);
+          }}
+          onRefresh={async () => {
+            setSubmitting(true);
+            try {
+              const [availRes] = await Promise.all([
+                apiClient.checkBookingAvailability(id)
+              ]);
+              setAvailability(availRes);
+              setConflictError(null);
+            } catch (e: any) {
+              console.error(e);
+            } finally {
+              setSubmitting(false);
+            }
+          }}
+        />
       )}
 
       {status === 'CONFIRMED' ? (

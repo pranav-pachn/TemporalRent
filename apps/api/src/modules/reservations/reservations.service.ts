@@ -110,11 +110,22 @@ export class ReservationsService {
               shortageCandidates.push(candidate);
               inventoryConflictItems.push({
                 inventoryItemId: candidate.inventoryItemId,
+                inventoryItemName: lockedItem.name,
+                requiredQty: demand.quantity,
+                usableQty: usable,
+                reservedQty: reserved,
+                availableQty: usable - reserved, // raw temporal logic, might be negative
+                shortageQty: Math.max(0, demand.quantity - Math.max(0, usable - reserved)),
+                period: {
+                  start: candidate.effectiveStart.toISOString(),
+                  end: candidate.effectiveEnd.toISOString(),
+                },
+                // For backwards compatibility:
                 required: demand.quantity,
                 usable,
                 reserved,
-                available,
-                shortage: demand.quantity - available,
+                available: Math.max(0, usable - reserved),
+                shortage: Math.max(0, demand.quantity - Math.max(0, usable - reserved)),
               });
             }
           }
@@ -197,16 +208,31 @@ export class ReservationsService {
       if (transactionError.code === 'INVENTORY_CONFLICT') {
         const conflictDetails = await this.availabilityRepo.findOverlappingReservationDetails(businessId, shortageCandidates);
         
-        const conflictsList = conflictDetails.map(detail => ({
-          reservationId: detail.id,
-          bookingId: detail.bookingId,
-          eventName: detail.eventName,
-          quantity: detail.quantity,
-          period: {
-            start: detail.effectiveStart.toISOString(),
-            end: detail.effectiveEnd.toISOString(),
-          }
-        }));
+        const conflictsList = inventoryConflictItems.map(item => {
+          const itemConflicts = conflictDetails
+            .filter(d => d.inventoryItemId === item.inventoryItemId)
+            .map(detail => ({
+              reservationId: detail.id,
+              bookingId: detail.bookingId,
+              bookingName: detail.eventName || 'Untitled Booking',
+              eventName: detail.eventName,
+              start: detail.effectiveStart.toISOString(),
+              end: detail.effectiveEnd.toISOString(),
+              quantity: detail.quantity,
+            }));
+
+          return {
+            inventoryItemId: item.inventoryItemId,
+            inventoryItemName: item.inventoryItemName,
+            requiredQty: item.requiredQty,
+            usableQty: item.usableQty,
+            reservedQty: item.reservedQty,
+            availableQty: item.availableQty,
+            shortageQty: item.shortageQty,
+            period: item.period,
+            conflictingReservations: itemConflicts,
+          };
+        });
 
         transactionError.items = inventoryConflictItems;
         transactionError.conflicts = conflictsList;

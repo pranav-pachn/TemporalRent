@@ -34,7 +34,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
 
     // Reject users who haven't completed onboarding if they access regular API routes
     // (Except for the workspace-setup route, which they need to call to finish onboarding)
-    if (!session.businessId && req.path !== '/auth/workspace-setup' && req.path !== '/auth/me') {
+    if (!session.businessId && req.path !== '/workspace-setup' && req.path !== '/me') {
       return res.status(403).json({
         code: 'ONBOARDING_INCOMPLETE',
         message: 'Workspace setup is required',

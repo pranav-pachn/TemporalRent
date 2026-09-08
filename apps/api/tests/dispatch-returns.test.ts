@@ -226,4 +226,70 @@ describe('Phase 19 & 20: Dispatch & Returns', () => {
     expect(missingMovements).toHaveLength(1);
     expect(missingMovements[0].quantityDelta).toBe(0); // Missing has 0 physical movement
   });
+
+  it('replays response idempotently on duplicate return completion with same idempotency key', async () => {
+    const dispatch = await prisma.dispatch.findUnique({ where: { bookingId }, include: { lines: true } });
+    const sofaLine = dispatch!.lines.find(l => l.inventoryItemId === itemSofaId)!;
+    const chairLine = dispatch!.lines.find(l => l.inventoryItemId === itemChairId)!;
+
+    const returnPayload = {
+      lines: [
+        {
+          dispatchLineId: sofaLine.id,
+          returnedGoodQty: 1,
+          damagedQty: 1,
+          missingQty: 0,
+          damageDetails: 'Scratch on left arm'
+        },
+        {
+          dispatchLineId: chairLine.id,
+          returnedGoodQty: 2,
+          damagedQty: 0,
+          missingQty: 1,
+        }
+      ]
+    };
+
+    const duplicateKey = crypto.randomUUID();
+
+    // First call
+    const res1 = await idempotencyService.executeIdempotent({
+      businessId,
+      key: duplicateKey,
+      operation: 'RETURN',
+      bookingId,
+      payload: returnPayload,
+      execute: async () => {
+        const data = await returnsService.completeReturn(businessId, bookingId, userId, returnPayload);
+        return { statusCode: 200, body: data };
+      }
+    });
+
+    // Replay call with exact same key
+    const res2 = await idempotencyService.executeIdempotent({
+      businessId,
+      key: duplicateKey,
+      operation: 'RETURN',
+      bookingId,
+      payload: returnPayload,
+      execute: async () => {
+        const data = await returnsService.completeReturn(businessId, bookingId, userId, returnPayload);
+        return { statusCode: 200, body: data };
+      }
+    });
+
+    expect(res1.statusCode).toBe(200);
+    expect(res2.statusCode).toBe(200);
+    expect(res1.body).toEqual(res2.body);
+  });
+
+  it('correctly returns read models for dispatches and returns', async () => {
+    const dispatches = await dispatchService.listDispatches(businessId);
+    expect(dispatches.length).toBeGreaterThanOrEqual(1);
+    expect(dispatches[0].bookingId).toBe(bookingId);
+
+    const completedReturns = await returnsService.listCompletedReturns(businessId);
+    expect(completedReturns.length).toBeGreaterThanOrEqual(1);
+    expect(completedReturns[0].bookingId).toBe(bookingId);
+  });
 });
