@@ -166,7 +166,6 @@ export default function CustomersPage() {
                         </div>
                         <div>
                           <div className="font-semibold text-text">{cust.name}</div>
-                          <div className="text-xs text-text-muted font-mono">ID: {cust.id.slice(0, 8)}...</div>
                         </div>
                       </div>
                     </td>

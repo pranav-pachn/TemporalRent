@@ -169,7 +169,9 @@ export default function BookingDetailPage({ params }: { params: { id: string } }
                   <div className="text-white font-medium">
                     {demand.inventoryItem?.name || 'Inventory Item'}
                   </div>
-                  <div className="text-neutral-500 text-xs mt-0.5 font-mono">ID: {demand.inventoryItem?.id || demand.id}</div>
+                  {demand.inventoryItem?.sku && (
+                    <div className="text-neutral-500 text-xs mt-0.5 uppercase tracking-wider">SKU: {demand.inventoryItem.sku}</div>
+                  )}
                 </div>
                 <div className="flex items-center space-x-3">
                   <span className="text-amber-400 text-xs uppercase tracking-wider font-medium">Committed</span>
@@ -196,7 +198,7 @@ export default function BookingDetailPage({ params }: { params: { id: string } }
                   <div className="text-white font-medium">
                     {res.inventoryItem?.name || 'Item'}
                   </div>
-                  <div className="text-neutral-500 text-xs mt-1 font-mono">{res.id}</div>
+                  <div className="text-neutral-500 text-xs mt-1 uppercase tracking-wider">Reservation #{res.id.substring(0, 8)}</div>
                 </div>
                 <div className="flex items-center space-x-4">
                   <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded border border-emerald-500/20 uppercase tracking-wider">

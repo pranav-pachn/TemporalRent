@@ -15,6 +15,35 @@ export interface AuditEventPayload {
   metadata?: any;
 }
 
+// Shape of the resolved actor attached to each event response
+export interface AuditActor {
+  id: string;
+  name: string | null;
+  email: string | null;
+}
+
+const userInclude = {
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+} as const;
+
+/**
+ * Converts a Prisma AuditEvent (with included user) into a plain DTO that
+ * includes an `actor` field instead of the raw `user` relation.
+ */
+function toEventDTO(event: any) {
+  const { user, ...rest } = event;
+  const actor: AuditActor | null = user
+    ? { id: user.id, name: user.name ?? null, email: user.email ?? null }
+    : null;
+  return { ...rest, actor };
+}
+
 export class AuditService {
   /**
    * Helper to construct and return an AuditEvent creation promise to be executed within a transaction.
@@ -62,30 +91,35 @@ export class AuditService {
       if (to) where.createdAt.lte = new Date(to);
     }
 
-    const [events, total] = await Promise.all([
+    const [rawEvents, total] = await Promise.all([
       prisma.auditEvent.findMany({
         where,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take: limit,
+        include: userInclude,
       }),
       prisma.auditEvent.count({ where }),
     ]);
 
+    const events = rawEvents.map(toEventDTO);
     return { events, total, page, limit };
   }
 
   async getBookingAuditTrail(businessId: string, bookingId: string) {
-    // Return all events associated directly with the bookingId
-    return prisma.auditEvent.findMany({
+    // Return all events associated directly with the bookingId, with actor resolved
+    const rawEvents = await prisma.auditEvent.findMany({
       where: {
         businessId,
         bookingId,
       },
       orderBy: [
         { createdAt: 'asc' },
-        { id: 'asc' } // Tie-breaker
+        { id: 'asc' }, // Tie-breaker
       ],
+      include: userInclude,
     });
+
+    return rawEvents.map(toEventDTO);
   }
 }
