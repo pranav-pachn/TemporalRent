@@ -1,79 +1,86 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { ConfirmDispatchInput } from './dispatch.schemas';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction, AuditEntityType } from '@prisma/client';
 
-const auditService = new AuditService();export class DispatchService {
+const auditService = new AuditService();
+
+export class DispatchService {
   async prepareDispatch(businessId: string, bookingId: string, userId: string) {
     return prisma.$transaction(async (tx) => {
-      // 1. Lock Booking
-      const booking = await tx.booking.findUnique({
-        where: { id: bookingId, businessId },
-      });
-
-      if (!booking) {
-        throw new Error('Booking not found');
-      }
-
-      if (booking.status !== 'CONFIRMED') {
-        const error = new Error('Booking must be CONFIRMED to prepare dispatch');
-        (error as any).code = 'CONFLICT';
-        throw error;
-      }
-
-      // 2. Check if Dispatch already exists (enforced by DB UNIQUE, but we check here for better error message)
-      const existingDispatch = await tx.dispatch.findUnique({
-        where: { bookingId },
-      });
-
-      if (existingDispatch) {
-        const error = new Error('Dispatch already exists for this booking');
-        (error as any).code = 'CONFLICT';
-        throw error;
-      }
-
-      // 3. Load demand
-      const demands = await tx.bookingItemDemand.findMany({
-        where: { bookingId, businessId },
-      });
-
-      if (demands.length === 0) {
-        const error = new Error('No demands found for booking');
-        (error as any).code = 'BAD_REQUEST';
-        throw error;
-      }
-
-      // 4. Create Dispatch and Lines (Operational Snapshot)
-      const dispatch = await tx.dispatch.create({
-        data: {
-          businessId,
-          bookingId,
-          status: 'READY',
-          lines: {
-            create: demands.map((demand) => ({
-              inventoryItemId: demand.inventoryItemId,
-              bookingItemDemandId: demand.id,
-              expectedQty: demand.quantityDemanded,
-              dispatchedQty: 0,
-            })),
-          },
-        },
-        include: { lines: true },
-      });
-
-      await auditService.recordAuditEvent(tx, {
-        businessId,
-        userId,
-        bookingId,
-        action: AuditAction.CREATE,
-        entityType: AuditEntityType.DISPATCH,
-        entityId: dispatch.id,
-        after: { status: 'READY', linesCount: dispatch.lines.length },
-        metadata: { bookingId }
-      });
-
-      return dispatch;
+      return this.prepareDispatchInTx(tx, businessId, bookingId, userId);
     });
+  }
+
+  async prepareDispatchInTx(tx: Prisma.TransactionClient, businessId: string, bookingId: string, userId: string) {
+    // 1. Lock Booking
+    const booking = await tx.booking.findUnique({
+      where: { id: bookingId, businessId },
+    });
+
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
+    if (booking.status !== 'CONFIRMED') {
+      const error = new Error('Booking must be CONFIRMED to prepare dispatch');
+      (error as any).code = 'CONFLICT';
+      throw error;
+    }
+
+    // 2. Check if Dispatch already exists (enforced by DB UNIQUE, but we check here for better error message)
+    const existingDispatch = await tx.dispatch.findUnique({
+      where: { bookingId },
+    });
+
+    if (existingDispatch) {
+      const error = new Error('Dispatch already exists for this booking');
+      (error as any).code = 'CONFLICT';
+      throw error;
+    }
+
+    // 3. Load demand
+    const demands = await tx.bookingItemDemand.findMany({
+      where: { bookingId, businessId },
+    });
+
+    if (demands.length === 0) {
+      const error = new Error('No demands found for booking');
+      (error as any).code = 'BAD_REQUEST';
+      throw error;
+    }
+
+    // 4. Create Dispatch and Lines (Operational Snapshot)
+    const dispatch = await tx.dispatch.create({
+      data: {
+        businessId,
+        bookingId,
+        status: 'READY',
+        lines: {
+          create: demands.map((demand) => ({
+            inventoryItemId: demand.inventoryItemId,
+            bookingItemDemandId: demand.id,
+            expectedQty: demand.quantityDemanded,
+            dispatchedQty: 0,
+          })),
+        },
+      },
+      include: { lines: true },
+    });
+
+    await auditService.recordAuditEvent(tx, {
+      businessId,
+      userId,
+      bookingId,
+      action: AuditAction.CREATE,
+      entityType: AuditEntityType.DISPATCH,
+      entityId: dispatch.id,
+      after: { status: 'READY', linesCount: dispatch.lines.length },
+      metadata: { bookingId }
+    });
+
+    return dispatch;
   }
 
   async startPicking(businessId: string, bookingId: string, userId: string) {

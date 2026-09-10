@@ -8,6 +8,8 @@ export interface InventoryItem {
   categoryId: string | null;
   totalQty: number;
   usableQty: number;
+  committedQty?: number;
+  availableQty?: number;
   damagedQty: number;
   missingQty: number;
   maintenanceQty: number;

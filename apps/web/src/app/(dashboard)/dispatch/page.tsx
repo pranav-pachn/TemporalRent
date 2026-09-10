@@ -18,9 +18,15 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { useRouter } from 'next/navigation';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+
 export default function DispatchPage() {
+  const router = useRouter();
   const [dispatches, setDispatches] = useState<DispatchDTO[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'ALL' | 'READY' | 'PICKING' | 'DISPATCHED'>('ALL');
   
   // Pick List Modal State
@@ -32,10 +38,18 @@ export default function DispatchPage() {
   const loadDispatches = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await apiClient.fetchDispatches();
       setDispatches(res.data);
+      return res.data;
     } catch (e: any) {
       console.error('Failed to load dispatches', e);
+      if (e.status === 401 || e.code === 'UNAUTHENTICATED') {
+        router.push('/login');
+        return [];
+      }
+      setError(e.message || 'Failed to load dispatches');
+      return [];
     } finally {
       setLoading(false);
     }
@@ -57,7 +71,13 @@ export default function DispatchPage() {
     try {
       setActionError(null);
       await apiClient.startPicking(dispatch.bookingId);
-      await loadDispatches();
+      const updatedDispatches = await loadDispatches();
+      
+      // Update active dispatch if we are in the modal
+      if (activeDispatch && activeDispatch.id === dispatch.id) {
+        const updated = updatedDispatches.find((d: DispatchDTO) => d.id === dispatch.id);
+        setActiveDispatch(updated || null);
+      }
     } catch (e: any) {
       setActionError(e.message || 'Failed to start picking');
     }
@@ -153,7 +173,13 @@ export default function DispatchPage() {
 
       {/* Content */}
       {loading ? (
-        <div className="text-neutral-400 py-16 text-center">Loading dispatch records...</div>
+        <div className="py-12">
+          <LoadingState />
+        </div>
+      ) : error ? (
+        <div className="py-8">
+          <ErrorState message={error} onRetry={loadDispatches} />
+        </div>
       ) : filteredDispatches.length === 0 ? (
         <div className="bg-neutral-900 border border-white/5 rounded-2xl py-20 text-center">
           <Package className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
@@ -394,7 +420,6 @@ export default function DispatchPage() {
                   <button
                     onClick={async () => {
                       await handleStartPicking(activeDispatch);
-                      setActiveDispatch((prev) => prev ? { ...prev, status: 'PICKING' } : null);
                     }}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
                   >

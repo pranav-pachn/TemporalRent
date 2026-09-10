@@ -30,7 +30,9 @@ export function ConflictModal({
             <AlertTriangle className="w-6 h-6" />
             <div>
               <h2 className="text-lg font-semibold uppercase tracking-wider">Booking Cannot Be Confirmed</h2>
-              <p className="text-red-300/80 text-sm mt-1">{error.conflicts.length} inventory conflicts</p>
+              <p className="text-red-300/80 text-sm mt-1">
+                {error.conflicts.length} item{error.conflicts.length !== 1 ? 's' : ''} with inventory shortage
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors">
@@ -39,8 +41,9 @@ export function ConflictModal({
         </div>
 
         {/* Notice */}
-        <div className="px-6 py-4 bg-neutral-950 border-b border-white/5 text-sm text-neutral-400">
-          Availability changed since your last check. 
+        <div className="px-6 py-3 bg-neutral-950 border-b border-white/5 text-sm text-neutral-400">
+          There is not enough inventory available to confirm this booking.
+          Review the conflicts below and adjust the quantity, change the event dates, or wait for other bookings to free up.
         </div>
 
         {/* Scrollable Content */}
@@ -54,45 +57,56 @@ export function ConflictModal({
                 </span>
               </div>
               
-              <div className="p-4 grid grid-cols-3 gap-4 border-b border-white/5 text-sm">
-                <div>
-                  <div className="text-neutral-500 mb-1">Required</div>
-                  <div className="text-white text-lg font-medium">{conflict.requiredQty}</div>
+              <div className="p-5 border-b border-white/5 bg-neutral-900/30 font-mono text-sm space-y-2">
+                <div className="flex justify-between max-w-[200px]">
+                  <span className="text-neutral-400">Required</span>
+                  <span className="text-white">{conflict.requiredQty}</span>
                 </div>
-                <div>
-                  <div className="text-neutral-500 mb-1">Available</div>
-                  <div className="text-white text-lg font-medium">{conflict.availableQty}</div>
+                <div className="flex justify-between max-w-[200px]">
+                  <span className="text-neutral-400">Available</span>
+                  <span className="text-white">{conflict.availableQty}</span>
                 </div>
-                <div>
-                  <div className="text-red-400/80 mb-1">Shortage</div>
-                  <div className="text-red-400 text-lg font-medium">{conflict.shortageQty}</div>
+                <div className="flex justify-between max-w-[200px] font-semibold text-red-400 pt-1 border-t border-white/10 mt-1">
+                  <span>Shortage</span>
+                  <span>{conflict.shortageQty}</span>
                 </div>
               </div>
 
               {conflict.conflictingReservations.length > 0 && (
-                <div className="p-4">
-                  <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Conflicting Bookings</div>
-                  <div className="space-y-3">
-                    {conflict.conflictingReservations.map((res, ridx) => (
-                      <div key={ridx} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-neutral-900 rounded-lg border border-white/5 gap-3">
-                        <div>
-                          <div className="font-medium text-white flex items-center">
-                            {res.bookingName || `Booking #${res.bookingId.substring(0, 8)}`}
-                            <span className="ml-3 text-neutral-500 text-sm font-normal">{res.quantity} units</span>
+                <div className="p-5">
+                  <div className="text-sm text-neutral-400 mb-4">Conflicting booking:</div>
+                  <div className="space-y-4">
+                    {conflict.conflictingReservations.map((res, ridx) => {
+                      const startDate = new Date(res.start);
+                      const endDate = new Date(res.end);
+                      
+                      const dateStr = startDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+                      const startTimeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                      const endTimeStr = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+                      return (
+                        <div key={ridx} className="flex flex-col sm:flex-row sm:items-start justify-between p-4 bg-neutral-950 rounded-lg border border-white/5 gap-4">
+                          <div className="space-y-1">
+                            <div className="font-semibold text-white text-base">
+                              {res.eventName || res.bookingName || `Booking #${res.bookingId.substring(0, 8)}`}
+                            </div>
+                            <div className="text-neutral-400 text-sm">{dateStr}</div>
+                            <div className="text-neutral-400 text-sm">
+                              {startTimeStr} &ndash; {endTimeStr}
+                            </div>
+                            <div className="text-neutral-300 text-sm mt-2 pt-2 border-t border-white/5">
+                              Quantity: <span className="text-white font-medium">{res.quantity}</span>
+                            </div>
                           </div>
-                          <div className="text-neutral-400 text-sm mt-1 flex items-center">
-                            <Calendar className="w-3.5 h-3.5 mr-1.5" />
-                            {new Date(res.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} &middot; {new Date(res.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} &ndash; {new Date(res.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                          </div>
+                          <Link 
+                            href={`/bookings/${res.bookingId}`}
+                            className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white text-sm font-medium rounded-lg transition-colors text-center whitespace-nowrap mt-2 sm:mt-0"
+                          >
+                            View Booking
+                          </Link>
                         </div>
-                        <Link 
-                          href={`/bookings/${res.bookingId}`}
-                          className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white text-sm font-medium rounded-md transition-colors text-center whitespace-nowrap"
-                        >
-                          View Booking
-                        </Link>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

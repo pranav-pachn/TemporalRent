@@ -2,14 +2,15 @@ import React from 'react';
 import Link from 'next/link';
 import { Package } from '@/types/package';
 import { PackageStatusBadge } from './PackageStatusBadge';
-import { PackageSearch, ArrowRight, Layers } from 'lucide-react';
+import { PackageSearch, ArrowRight, Layers, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface PackagesTableProps {
   packages: Package[];
+  onDelete?: (id: string) => void;
 }
 
-export function PackagesTable({ packages }: PackagesTableProps) {
+export function PackagesTable({ packages, onDelete }: PackagesTableProps) {
   if (packages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-surface border border-border rounded-lg text-center">
@@ -71,13 +72,24 @@ export function PackagesTable({ packages }: PackagesTableProps) {
                     {displayVersion ? <PackageStatusBadge status={displayVersion.status} /> : <span className="text-text-muted">-</span>}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <Link 
-                      href={`/packages/${pkg.id}`}
-                      className="inline-flex items-center justify-center p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                    >
-                      <ArrowRight className="w-4 h-4" />
-                      <span className="sr-only">View Details</span>
-                    </Link>
+                    <div className="flex items-center justify-end gap-2">
+                      {onDelete && (
+                        <button
+                          onClick={() => onDelete(pkg.id)}
+                          className="inline-flex items-center justify-center p-2 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                          title="Delete Package"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      <Link 
+                        href={`/packages/${pkg.id}`}
+                        className="inline-flex items-center justify-center p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      >
+                        <ArrowRight className="w-4 h-4" />
+                        <span className="sr-only">View Details</span>
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               );

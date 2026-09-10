@@ -14,7 +14,10 @@ const config: Config = {
         surface: '#141418',
         surfaceHover: '#1c1c22',
         border: '#27272a',
-        primary: '#f59e0b',
+        primary: {
+          DEFAULT: '#f59e0b',
+          foreground: '#0d0d10',
+        },
         primaryHover: '#d97706',
         text: {
           DEFAULT: '#f4f4f5',

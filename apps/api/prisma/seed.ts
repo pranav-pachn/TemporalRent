@@ -1,21 +1,29 @@
 import { PrismaClient } from '@prisma/client';
-import jwt from 'jsonwebtoken';
-import { addDays, subDays } from 'date-fns';
+import { addDays, subDays, startOfDay, addHours } from 'date-fns';
 
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-dev';
 
 async function main() {
   console.log('Seeding database with realistic dashboard data...');
 
-  // Clean up previous seed
+  // Clean up previous seed in correct foreign-key dependency order
   await prisma.auditEvent.deleteMany({});
+  await prisma.damageReport.deleteMany({});
+  await prisma.returnLine.deleteMany({});
+  await prisma.return.deleteMany({});
+  await prisma.dispatchLine.deleteMany({});
+  await prisma.dispatch.deleteMany({});
+  await prisma.inventoryMovement.deleteMany({});
   await prisma.inventoryReservation.deleteMany({});
   await prisma.bookingItemDemand.deleteMany({});
   await prisma.bookingLine.deleteMany({});
   await prisma.booking.deleteMany({});
+  await prisma.packageComponent.deleteMany({});
+  await prisma.packageVersion.deleteMany({});
+  await prisma.package.deleteMany({});
   await prisma.inventoryItem.deleteMany({});
   await prisma.category.deleteMany({});
+  await prisma.session.deleteMany({});
   await prisma.user.deleteMany({});
   await prisma.customer.deleteMany({});
   await prisma.business.deleteMany({});
@@ -26,6 +34,8 @@ async function main() {
       name: 'Acme Event Rentals',
       slug: 'acme-events',
       timezone: 'America/New_York',
+      defaultBufferBeforeMinutes: 120,
+      defaultBufferAfterMinutes: 720,
     },
   });
 
@@ -54,86 +64,71 @@ async function main() {
     data: { businessId: business.id, categoryId: catAudio.id, name: 'Shure SM58 Microphones', totalQty: 20, sku: 'SHR-SM58' }
   });
   const lights = await prisma.inventoryItem.create({
-    data: { businessId: business.id, categoryId: catLighting.id, name: 'Chauvet Wash Lights', totalQty: 8, sku: 'CHV-WASH', damagedQty: 2 } // Missing/damaged lights to trigger alerts!
+    data: { businessId: business.id, categoryId: catLighting.id, name: 'Chauvet Wash Lights', totalQty: 8, sku: 'CHV-WASH', damagedQty: 2 }
   });
 
   // 5. Create Bookings & Reservations
   const today = new Date();
+  const todayEnd = addDays(today, 2);
+  const b1Id = crypto.randomUUID();
   
   // Booking 1: Dispatching today
-  const b1 = await prisma.booking.create({
-    data: {
-      businessId: business.id,
-      customerId: customer1.id,
-      createdByUserId: user.id,
-      eventName: 'Stark Gala',
-      status: 'CONFIRMED',
-      eventStart: today, // Starts today
-      eventEnd: addDays(today, 2),
-      period: `[${today.toISOString()}, ${addDays(today, 2).toISOString()})` as any,
-    }
-  });
+  await prisma.$executeRaw`
+    INSERT INTO "bookings" ("id", "businessId", "customerId", "createdByUserId", "eventName", "status", "eventStart", "eventEnd", "period", "createdAt", "updatedAt")
+    VALUES (${b1Id}, ${business.id}, ${customer1.id}, ${user.id}, 'Stark Gala', 'CONFIRMED', ${today}, ${todayEnd}, tstzrange(${today.toISOString()}::timestamptz, ${todayEnd.toISOString()}::timestamptz, '[)'), NOW(), NOW())
+  `;
 
   await prisma.bookingLine.create({
-    data: { bookingId: b1.id, type: 'ITEM', inventoryItemId: speakers.id, quantity: 4, name: 'Speakers' }
+    data: { bookingId: b1Id, type: 'INVENTORY_ITEM', inventoryItemId: speakers.id, quantity: 4 }
   });
   
-  // Directly insert reservation for dashboard read projection
+  const b1ResStart = new Date(today.getTime() - 120 * 60000);
+  const b1ResEnd = new Date(todayEnd.getTime() + 720 * 60000);
+  
   await prisma.$executeRaw`
     INSERT INTO "inventory_reservations" ("id", "businessId", "inventoryItemId", "bookingId", "quantity", "period", "status", "createdAt", "updatedAt")
-    VALUES (gen_random_uuid(), ${business.id}, ${speakers.id}, ${b1.id}, 4, tstzrange(${today.toISOString()}::timestamptz, ${addDays(today, 2).toISOString()}::timestamptz, '[)'), 'ACTIVE', NOW(), NOW())
+    VALUES (gen_random_uuid(), ${business.id}, ${speakers.id}, ${b1Id}, 4, tstzrange(${b1ResStart.toISOString()}::timestamptz, ${b1ResEnd.toISOString()}::timestamptz, '[)'), 'ACTIVE', NOW(), NOW())
   `;
 
   // Booking 2: Returning today
-  const b2 = await prisma.booking.create({
-    data: {
-      businessId: business.id,
-      customerId: customer2.id,
-      createdByUserId: user.id,
-      eventName: 'Wayne Charity',
-      status: 'CONFIRMED', // Make it COMPLETED or DISPATCHED to show returns today if needed, let's keep CONFIRMED but ending today
-      eventStart: subDays(today, 3), // Started 3 days ago
-      eventEnd: today, // Ends today
-      period: `[${subDays(today, 3).toISOString()}, ${today.toISOString()})` as any,
-    }
-  });
+  const b2Start = subDays(today, 3);
+  const b2Id = crypto.randomUUID();
+  await prisma.$executeRaw`
+    INSERT INTO "bookings" ("id", "businessId", "customerId", "createdByUserId", "eventName", "status", "eventStart", "eventEnd", "period", "createdAt", "updatedAt")
+    VALUES (${b2Id}, ${business.id}, ${customer2.id}, ${user.id}, 'Wayne Charity', 'CONFIRMED', ${b2Start}, ${today}, tstzrange(${b2Start.toISOString()}::timestamptz, ${today.toISOString()}::timestamptz, '[)'), NOW(), NOW())
+  `;
 
   await prisma.bookingLine.create({
-    data: { bookingId: b2.id, type: 'ITEM', inventoryItemId: lights.id, quantity: 6, name: 'Lights' }
+    data: { bookingId: b2Id, type: 'INVENTORY_ITEM', inventoryItemId: lights.id, quantity: 6 }
   });
+
+  const b2ResStart = new Date(b2Start.getTime() - 120 * 60000);
+  const b2ResEnd = new Date(today.getTime() + 720 * 60000);
 
   await prisma.$executeRaw`
     INSERT INTO "inventory_reservations" ("id", "businessId", "inventoryItemId", "bookingId", "quantity", "period", "status", "createdAt", "updatedAt")
-    VALUES (gen_random_uuid(), ${business.id}, ${lights.id}, ${b2.id}, 6, tstzrange(${subDays(today, 3).toISOString()}::timestamptz, ${today.toISOString()}::timestamptz, '[)'), 'ACTIVE', NOW(), NOW())
+    VALUES (gen_random_uuid(), ${business.id}, ${lights.id}, ${b2Id}, 6, tstzrange(${b2ResStart.toISOString()}::timestamptz, ${b2ResEnd.toISOString()}::timestamptz, '[)'), 'ACTIVE', NOW(), NOW())
   `;
 
   // Booking 3: Upcoming (Tomorrow)
-  const b3 = await prisma.booking.create({
-    data: {
-      businessId: business.id,
-      customerId: customer1.id,
-      createdByUserId: user.id,
-      eventName: 'Stark Press Conference',
-      status: 'CONFIRMED',
-      eventStart: addDays(today, 1),
-      eventEnd: addDays(today, 2),
-      period: `[${addDays(today, 1).toISOString()}, ${addDays(today, 2).toISOString()})` as any,
-    }
-  });
+  const b3Start = addDays(today, 1);
+  const b3End = addHours(b3Start, 4);
+  const b3Id = crypto.randomUUID();
+  await prisma.$executeRaw`
+    INSERT INTO "bookings" ("id", "businessId", "customerId", "createdByUserId", "eventName", "status", "eventStart", "eventEnd", "period", "createdAt", "updatedAt")
+    VALUES (${b3Id}, ${business.id}, ${customer1.id}, ${user.id}, 'Stark Press Conference', 'CONFIRMED', ${b3Start}, ${b3End}, tstzrange(${b3Start.toISOString()}::timestamptz, ${b3End.toISOString()}::timestamptz, '[)'), NOW(), NOW())
+  `;
+
+  const b3ResStart = new Date(b3Start.getTime() - 120 * 60000);
+  const b3ResEnd = new Date(b3End.getTime() + 720 * 60000);
+
+  const { createSession } = await import('../src/lib/session');
+  const session = await createSession(user.id, business.id);
 
   console.log('--- SEED SUCCESS ---');
-  
-  const token = jwt.sign(
-    { userId: user.id, businessId: business.id, role: user.role },
-    JWT_SECRET,
-    { expiresIn: '30d' }
-  );
-
-  console.log(`\n\n=== DEV JWT TOKEN ===`);
-  console.log(`\nPlease copy this token and use it in your frontend!\n`);
-  console.log(token);
-  console.log(`\n=====================\n\n`);
-
+  console.log(`\n\n=== DEV SESSION TOKEN (HTTP-only cookie / Bearer) ===`);
+  console.log(session.token);
+  console.log(`\n======================================================\n\n`);
 }
 
 main()

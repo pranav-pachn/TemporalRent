@@ -170,7 +170,14 @@ export class BookingsController {
       res.status(result.statusCode).json(result.body);
     } catch (error: any) {
       const status = error.statusCode || 500;
-      res.status(status).json({ code: error.code || 'INTERNAL_ERROR', error: error.message, ...error });
+      const body: any = {
+        code: error.code || 'INTERNAL_ERROR',
+        message: error.message,
+      };
+      // Explicitly copy non-enumerable custom properties (Error instances don't spread these)
+      if (error.conflicts !== undefined) body.conflicts = error.conflicts;
+      if (error.items !== undefined) body.items = error.items;
+      res.status(status).json(body);
     }
   }
 
@@ -203,7 +210,13 @@ export class BookingsController {
         return res.status(400).json({ error: 'Validation Error', details: error.errors });
       }
       const status = error.statusCode || 500;
-      res.status(status).json({ code: error.code || 'INTERNAL_ERROR', error: error.message, ...error });
+      const body: any = {
+        code: error.code || 'INTERNAL_ERROR',
+        message: error.message,
+      };
+      if (error.conflicts !== undefined) body.conflicts = error.conflicts;
+      if (error.items !== undefined) body.items = error.items;
+      res.status(status).json(body);
     }
   }
 }

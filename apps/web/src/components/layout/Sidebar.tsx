@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, LayoutDashboard, Package, Boxes, Truck, Undo2, AlertTriangle, ScrollText, Settings, CalendarDays } from 'lucide-react';
+import { Calendar, LayoutDashboard, Package, Boxes, Truck, Undo2, AlertTriangle, ScrollText, Settings, CalendarDays, Building2, Users } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 
 const navGroups = [
   {
@@ -11,6 +12,7 @@ const navGroups = [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { name: 'Calendar', href: '/calendar', icon: CalendarDays },
       { name: 'Bookings', href: '/bookings', icon: ScrollText },
+      { name: 'Customers', href: '/customers', icon: Users },
     ],
   },
   {
@@ -39,13 +41,20 @@ const navGroups = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { business } = useAuth();
 
   return (
     <aside className="hidden md:flex flex-col w-64 bg-surface border-r border-border h-screen sticky top-0">
-      <div className="p-6">
+      <div className="p-5 border-b border-border/60">
         <div className="font-bold text-xl text-primary flex items-center space-x-2">
           <span>TemporalRent</span>
         </div>
+        {business?.name && (
+          <div className="mt-2.5 flex items-center gap-1.5 px-2.5 py-1.5 bg-surfaceHover border border-border rounded-lg text-xs font-medium text-text">
+            <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="truncate">{business.name}</span>
+          </div>
+        )}
       </div>
       
       <nav className="flex-1 overflow-y-auto px-4 pb-4 space-y-8">

@@ -1,34 +1,74 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { BookingDetailDTO } from '@/types/bookings';
-import { ArrowLeft, CheckCircle2, Package, Calendar, Clock, User, Hash } from 'lucide-react';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { ArrowLeft, Package, Calendar, Clock, User, Hash, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function BookingDetailPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const [booking, setBooking] = useState<BookingDetailDTO | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadBooking = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await apiClient.fetchBookingById(params.id);
+      setBooking(res.data);
+    } catch (err: any) {
+      console.error('Failed to load booking:', err);
+      if (err.status === 401 || err.code === 'UNAUTHENTICATED') {
+        router.push('/login');
+        return;
+      }
+      setError(err.status === 404 ? 'Booking not found' : (err.message || 'Failed to load booking'));
+    } finally {
+      setLoading(false);
+    }
+  }, [params.id, router]);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await apiClient.fetchBookingById(params.id);
-        setBooking(res.data);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [params.id]);
+    loadBooking();
+  }, [loadBooking]);
 
-  if (loading) return <div className="p-8 text-neutral-400">Loading booking...</div>;
-  if (!booking) return <div className="p-8 text-red-400">Booking not found</div>;
+  const handleCancelBooking = async () => {
+    if (!booking) return;
+    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+    try {
+      await apiClient.cancelBooking(booking.id, crypto.randomUUID(), 'Cancelled via dashboard');
+      loadBooking(); // Reload to show updated status
+    } catch (err: any) {
+      alert(err.message || 'Failed to cancel booking');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <LoadingState />
+      </div>
+    );
+  }
+
+  if (error || !booking) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <ErrorState 
+          message={error || 'Booking not found'} 
+          onRetry={loadBooking} 
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-24">
+    <div className="max-w-4xl mx-auto space-y-6 pb-24 p-6">
       <div className="flex items-center space-x-4">
         <Link href="/bookings" className="p-2 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors">
           <ArrowLeft className="h-5 w-5" />
@@ -38,9 +78,21 @@ export default function BookingDetailPage({ params }: { params: { id: string } }
             <h1 className="text-2xl font-semibold text-white tracking-tight">{booking.eventName}</h1>
             <p className="text-neutral-500 text-sm mt-0.5">Booking #{booking.id.substring(0, 8)}</p>
           </div>
-          <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 font-medium text-sm rounded-lg border border-blue-500/20 uppercase tracking-wider">
-            {booking.status}
-          </span>
+          <div className="flex items-center space-x-3">
+            <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 font-medium text-sm rounded-lg border border-blue-500/20 uppercase tracking-wider">
+              {booking.status}
+            </span>
+            {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
+              <button
+                onClick={handleCancelBooking}
+                className="flex items-center px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-medium text-sm rounded-lg border border-red-500/20 transition-colors"
+                title="Cancel Booking"
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" />
+                Cancel
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -104,11 +156,38 @@ export default function BookingDetailPage({ params }: { params: { id: string } }
         </div>
       </div>
 
-      {booking.inventoryReservations && booking.inventoryReservations.length > 0 && (
+      {booking.bookingItemDemands && booking.bookingItemDemands.length > 0 && (
         <div className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden">
           <div className="p-4 border-b border-white/5 flex items-center bg-neutral-950">
             <Hash className="w-4 h-4 mr-2 text-neutral-400" />
-            <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Active Reservations</h2>
+            <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Inventory Demand & Commitments</h2>
+          </div>
+          <div className="divide-y divide-white/5">
+            {booking.bookingItemDemands.map((demand) => (
+              <div key={demand.id} className="p-4 flex justify-between items-center hover:bg-white/5 transition-colors">
+                <div>
+                  <div className="text-white font-medium">
+                    {demand.inventoryItem?.name || 'Inventory Item'}
+                  </div>
+                  <div className="text-neutral-500 text-xs mt-0.5 font-mono">ID: {demand.inventoryItem?.id || demand.id}</div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <span className="text-amber-400 text-xs uppercase tracking-wider font-medium">Committed</span>
+                  <div className="text-white font-medium bg-neutral-800 px-3 py-1 rounded-lg border border-white/5">
+                    {demand.quantityDemanded} committed
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {booking.inventoryReservations && booking.inventoryReservations.length > 0 && (
+        <div className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden">
+          <div className="p-4 border-b border-white/5 flex items-center bg-neutral-950">
+            <Clock className="w-4 h-4 mr-2 text-neutral-400" />
+            <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Active Reservations (Temporal Locks)</h2>
           </div>
           <div className="divide-y divide-white/5">
             {booking.inventoryReservations.map((res) => (
@@ -120,12 +199,9 @@ export default function BookingDetailPage({ params }: { params: { id: string } }
                   <div className="text-neutral-500 text-xs mt-1 font-mono">{res.id}</div>
                 </div>
                 <div className="flex items-center space-x-4">
-                  <div className="text-neutral-400 text-sm text-right">
-                    <div className="flex items-center justify-end">
-                      <Clock className="w-3.5 h-3.5 mr-1.5" />
-                      Reserved Window
-                    </div>
-                  </div>
+                  <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded border border-emerald-500/20 uppercase tracking-wider">
+                    {res.status}
+                  </span>
                   <div className="text-white font-medium bg-neutral-800 px-3 py-1 rounded-lg border border-white/5">
                     {res.quantity} reserved
                   </div>

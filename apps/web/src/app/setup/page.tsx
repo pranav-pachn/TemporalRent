@@ -26,7 +26,7 @@ export default function SetupPage() {
         timezone
       });
       await refetchSession();
-      router.push('/dashboard');
+      window.location.href = '/dashboard';
     } catch (err: any) {
       setError(err.message || 'Failed to create workspace. Please try again.');
     } finally {

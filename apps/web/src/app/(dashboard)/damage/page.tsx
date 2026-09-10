@@ -14,21 +14,32 @@ import {
   Clock,
   ExternalLink
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 export default function DamagePage() {
+  const router = useRouter();
   const [reports, setReports] = useState<DamageReportDTO[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'ALL' | 'DAMAGED' | 'MISSING'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   const loadReports = async (type: 'ALL' | 'DAMAGED' | 'MISSING') => {
     try {
       setLoading(true);
+      setError(null);
       const res = await apiClient.fetchDamageReports(type);
       setReports(res.data);
     } catch (e: any) {
       console.error('Failed to load damage reports', e);
+      if (e.status === 401 || e.code === 'UNAUTHENTICATED') {
+        router.push('/login');
+        return;
+      }
+      setError(e.message || 'Failed to load damage reports');
     } finally {
       setLoading(false);
     }
@@ -99,7 +110,13 @@ export default function DamagePage() {
 
       {/* Content */}
       {loading ? (
-        <div className="text-neutral-400 py-16 text-center">Loading damage records...</div>
+        <div className="py-12">
+          <LoadingState />
+        </div>
+      ) : error ? (
+        <div className="py-8">
+          <ErrorState message={error} onRetry={() => loadReports(filterType)} />
+        </div>
       ) : filteredReports.length === 0 ? (
         <div className="bg-neutral-900 border border-white/5 rounded-2xl py-20 text-center">
           <ShieldAlert className="w-12 h-12 text-neutral-600 mx-auto mb-3" />

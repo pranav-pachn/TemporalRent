@@ -18,6 +18,7 @@ import { damageReportsRouter } from './modules/damage/damage-reports.routes';
 import dashboardRouter from './modules/dashboard/dashboard.routes';
 import { customersRouter } from './modules/customers/customers.routes';
 import { calendarRouter } from './modules/calendar/calendar.routes';
+import { settingsRouter } from './modules/settings/settings.routes';
 
 export const app = express();
 
@@ -94,7 +95,10 @@ app.use('/api/v1/damage-reports', damageReportsRouter);
 app.use('/api/v1/dashboard', dashboardRouter);
 
 // Audit routes
-app.use('/api/v1/audit-events', auditRouter);
+app.use('/api/v1/audit', auditRouter);
 
 // Calendar routes
 app.use('/api/v1/calendar', calendarRouter);
+
+// Settings routes
+app.use('/api/v1/settings', settingsRouter);

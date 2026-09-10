@@ -7,7 +7,12 @@ import { InventoryItem } from '@/types/inventory';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth } from 'date-fns';
 
+import { useRouter } from 'next/navigation';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+
 export default function CalendarPage() {
+  const router = useRouter();
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [inventoryResponse, setInventoryResponse] = useState<CalendarInventoryResponse | null>(null);
@@ -15,34 +20,48 @@ export default function CalendarPage() {
   
   const [selectedItemId, setSelectedItemId] = useState<string>('all');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Load the inventory items for the filter dropdown
   useEffect(() => {
-    apiClient.fetchInventoryItems().then(res => setInventoryItemsList(res.data));
-  }, []);
+    apiClient.fetchInventoryItems()
+      .then(res => setInventoryItemsList(res.data))
+      .catch(e => {
+        if (e.status === 401 || e.code === 'UNAUTHENTICATED') {
+          router.push('/login');
+        }
+      });
+  }, [router]);
+
+  const loadCalendar = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fromDateStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+      // Add one extra day to `to` because the backend uses half-open interval [from, to)
+      const toDateStr = format(addMonths(startOfMonth(currentMonth), 1), 'yyyy-MM-dd');
+
+      const [eventsRes, invRes] = await Promise.all([
+        apiClient.fetchCalendarEvents(fromDateStr, toDateStr),
+        apiClient.fetchCalendarInventory(fromDateStr, toDateStr, selectedItemId === 'all' ? undefined : selectedItemId)
+      ]);
+
+      setEvents(eventsRes.data);
+      setInventoryResponse(invRes.data);
+    } catch (e: any) {
+      console.error('Failed to load calendar data', e);
+      if (e.status === 401 || e.code === 'UNAUTHENTICATED') {
+        router.push('/login');
+        return;
+      }
+      setError(e.message || 'Failed to load calendar data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch Calendar Data
   useEffect(() => {
-    async function loadCalendar() {
-      setLoading(true);
-      try {
-        const fromDateStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
-        // Add one extra day to `to` because the backend uses half-open interval [from, to)
-        const toDateStr = format(addMonths(startOfMonth(currentMonth), 1), 'yyyy-MM-dd');
-
-        const [eventsRes, invRes] = await Promise.all([
-          apiClient.fetchCalendarEvents(fromDateStr, toDateStr),
-          apiClient.fetchCalendarInventory(fromDateStr, toDateStr, selectedItemId === 'all' ? undefined : selectedItemId)
-        ]);
-
-        setEvents(eventsRes.data);
-        setInventoryResponse(invRes.data);
-      } catch (e) {
-        console.error('Failed to load calendar data', e);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadCalendar();
   }, [currentMonth, selectedItemId]);
 
@@ -84,6 +103,14 @@ export default function CalendarPage() {
       width: `${Math.max(4, width)}px` // min width 4px to be visible
     };
   };
+
+  if (error) {
+    return (
+      <div className="max-w-[1400px] mx-auto p-6">
+        <ErrorState message={error} onRetry={loadCalendar} />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-8 pb-24">

@@ -11,8 +11,13 @@ export function Topbar() {
 
   return (
     <header className="h-16 border-b border-border bg-surface flex items-center justify-between px-6 sticky top-0 z-10">
-      <div className="flex items-center">
+      <div className="flex items-center gap-3">
         <Breadcrumbs />
+        {business?.name && (
+          <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+            {business.name}
+          </span>
+        )}
       </div>
 
       <div className="flex items-center space-x-4">

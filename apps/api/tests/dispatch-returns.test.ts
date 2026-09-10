@@ -228,6 +228,13 @@ describe('Phase 19 & 20: Dispatch & Returns', () => {
   });
 
   it('replays response idempotently on duplicate return completion with same idempotency key', async () => {
+    // Delete the previous return to allow testing the idempotency wrapper
+    await prisma.returnLine.deleteMany({ where: { return: { bookingId } } });
+    await prisma.return.deleteMany({ where: { bookingId } });
+
+    // Reset booking back to DISPATCHED to test idempotency wrapper processing a new return
+    await prisma.$executeRaw`UPDATE bookings SET status = 'DISPATCHED'::"BookingStatus" WHERE id = ${bookingId}`;
+
     const dispatch = await prisma.dispatch.findUnique({ where: { bookingId }, include: { lines: true } });
     const sofaLine = dispatch!.lines.find(l => l.inventoryItemId === itemSofaId)!;
     const chairLine = dispatch!.lines.find(l => l.inventoryItemId === itemChairId)!;
@@ -280,7 +287,7 @@ describe('Phase 19 & 20: Dispatch & Returns', () => {
 
     expect(res1.statusCode).toBe(200);
     expect(res2.statusCode).toBe(200);
-    expect(res1.body).toEqual(res2.body);
+    expect(JSON.parse(JSON.stringify(res1.body))).toEqual(JSON.parse(JSON.stringify(res2.body)));
   });
 
   it('correctly returns read models for dispatches and returns', async () => {

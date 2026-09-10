@@ -4,6 +4,7 @@ import { BookingLineInput } from '../package-expansion/package-expansion.types';
 import { AvailabilityResult, AvailabilityItemResult } from './availability.types';
 import { ApiError } from '../../lib/errors';
 import { AvailabilityRepository, CandidateItemWindow } from './availability.repository';
+import { resolveEffectiveBuffer, getOperationalPeriod } from './buffer.util';
 
 export class AvailabilityService {
   private expansionService: PackageExpansionService;
@@ -50,18 +51,16 @@ export class AvailabilityService {
     const baseEnd = new Date(eventEnd);
 
     const itemWindows = items.map((item) => {
-      const bufferBefore =
-        item.bufferBeforeMinutes ??
-        item.category?.bufferBeforeMinutes ??
-        item.business.defaultBufferBeforeMinutes;
+      const { before, after } = resolveEffectiveBuffer({
+        itemBefore: item.bufferBeforeMinutes,
+        itemAfter: item.bufferAfterMinutes,
+        categoryBefore: item.category?.bufferBeforeMinutes,
+        categoryAfter: item.category?.bufferAfterMinutes,
+        businessBefore: item.business.defaultBufferBeforeMinutes,
+        businessAfter: item.business.defaultBufferAfterMinutes,
+      });
 
-      const bufferAfter =
-        item.bufferAfterMinutes ??
-        item.category?.bufferAfterMinutes ??
-        item.business.defaultBufferAfterMinutes;
-
-      const effectiveStart = new Date(baseStart.getTime() - bufferBefore * 60000);
-      const effectiveEnd = new Date(baseEnd.getTime() + bufferAfter * 60000);
+      const { effectiveStart, effectiveEnd } = getOperationalPeriod(baseStart, baseEnd, before, after);
 
       const usable = item.totalQty - (item.damagedQty + item.missingQty + item.maintenanceQty);
 

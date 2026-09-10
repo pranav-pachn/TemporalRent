@@ -11,6 +11,7 @@ import {
   ReturnDTO, 
   DamageReportDTO 
 } from '../types/warehouse';
+import { AuditFilters, ListAuditEventsResponse } from '../types/audit';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -28,6 +29,26 @@ export const apiClient = {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw { status: response.status, ...errorData };
+    }
+
+    return response.json();
+  },
+
+  patch: async (endpoint: string, data: any, options: RequestInit = {}) => {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'PATCH',
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || errorData.message || 'API Error');
     }
 
     return response.json();
@@ -53,6 +74,25 @@ export const apiClient = {
     return response.json();
   },
 
+  delete: async (endpoint: string, options: RequestInit = {}) => {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'DELETE',
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw { status: response.status, ...errorData };
+    }
+
+    return response.json();
+  },
+
   fetchDashboard: async (options: RequestInit = {}): Promise<DashboardDTO> => {
     return apiClient.get('/api/v1/dashboard', options);
   },
@@ -61,8 +101,27 @@ export const apiClient = {
     return apiClient.get('/api/v1/inventory', options);
   },
 
+  createInventoryItem: async (
+    data: { name: string; sku?: string; totalQty?: number; categoryId?: string },
+    options: RequestInit = {}
+  ): Promise<{ data: InventoryItem }> => {
+    return apiClient.post('/api/v1/inventory', data, options);
+  },
+
   fetchInventoryItem: async (id: string, options: RequestInit = {}): Promise<{ data: InventoryItem }> => {
     return apiClient.get(`/api/v1/inventory/${id}`, options);
+  },
+
+  updateInventoryItem: async (id: string, data: Partial<InventoryItem>, options: RequestInit = {}): Promise<{ data: InventoryItem }> => {
+    return apiClient.patch(`/api/v1/inventory/${id}`, data, options);
+  },
+
+  adjustInventoryItem: async (id: string, data: { quantityDelta: number; notes?: string }, options: RequestInit = {}): Promise<{ data: InventoryItem }> => {
+    return apiClient.post(`/api/v1/inventory/${id}/adjust`, data, options);
+  },
+
+  deleteInventoryItem: async (id: string, options: RequestInit = {}): Promise<{ data: any }> => {
+    return apiClient.delete(`/api/v1/inventory/${id}`, options);
   },
 
   fetchInventoryReservations: async (id: string, from: string, to: string, options: RequestInit = {}): Promise<{ data: InventoryReservation[] }> => {
@@ -89,8 +148,27 @@ export const apiClient = {
     return apiClient.get(`/api/v1/packages/${id}`, options);
   },
 
+  createPackage: async (
+    data: { name: string; description?: string },
+    options: RequestInit = {}
+  ): Promise<{ data: Package }> => {
+    return apiClient.post('/api/v1/packages', data, options);
+  },
+
+  deletePackage: async (id: string, options: RequestInit = {}): Promise<{ data: any }> => {
+    return apiClient.delete(`/api/v1/packages/${id}`, options);
+  },
+
   fetchPackageVersions: async (id: string, options: RequestInit = {}): Promise<{ data: PackageVersion[] }> => {
     return apiClient.get(`/api/v1/packages/${id}/versions`, options);
+  },
+
+  createPackageVersion: async (
+    packageId: string,
+    data: { components: Array<{ inventoryItemId: string; quantity: number }> },
+    options: RequestInit = {}
+  ): Promise<{ data: PackageVersion }> => {
+    return apiClient.post(`/api/v1/packages/${packageId}/versions`, data, options);
   },
 
   activatePackageVersion: async (packageId: string, versionId: string, options: RequestInit = {}): Promise<{ data: PackageVersion }> => {
@@ -99,6 +177,17 @@ export const apiClient = {
 
   fetchCustomers: async (options: RequestInit = {}): Promise<{ data: CustomerDTO[] }> => {
     return apiClient.get('/api/v1/customers', options);
+  },
+
+  createCustomer: async (
+    data: { name: string; email?: string; phone?: string },
+    options: RequestInit = {}
+  ): Promise<{ data: CustomerDTO }> => {
+    return apiClient.post('/api/v1/customers', data, options);
+  },
+
+  deleteCustomer: async (id: string, options: RequestInit = {}): Promise<{ message: string }> => {
+    return apiClient.delete(`/api/v1/customers/${id}`, options);
   },
 
   createBookingDraft: async (data: CreateBookingInput, options: RequestInit = {}): Promise<{ data: BookingDTO }> => {
@@ -126,6 +215,16 @@ export const apiClient = {
 
   confirmBooking: async (id: string, idempotencyKey: string, options: RequestInit = {}): Promise<{ status: string }> => {
     return apiClient.post(`/api/v1/bookings/${id}/confirm`, {}, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Idempotency-Key': idempotencyKey,
+      }
+    });
+  },
+
+  cancelBooking: async (id: string, idempotencyKey: string, reason?: string, options: RequestInit = {}): Promise<{ data: any }> => {
+    return apiClient.post(`/api/v1/bookings/${id}/cancel`, { reason }, {
       ...options,
       headers: {
         ...options.headers,
@@ -203,4 +302,28 @@ export const apiClient = {
     
   fetchCalendarInventory: (from: string, to: string, inventoryItemId?: string) => 
     apiClient.get(`/api/v1/calendar/inventory?from=${from}&to=${to}${inventoryItemId ? `&inventoryItemId=${inventoryItemId}` : ''}`),
+
+  // Settings Endpoints
+  getBusinessSettings: () => 
+    apiClient.get('/api/v1/settings/business'),
+
+  updateBusinessSettings: (data: { defaultBufferBeforeMinutes?: number; defaultBufferAfterMinutes?: number }) => 
+    apiClient.patch('/api/v1/settings/business', data),
+
+  // Audit
+  fetchAuditEvents: (filters: AuditFilters = {}, options: RequestInit = {}): Promise<ListAuditEventsResponse> => {
+    const params = new URLSearchParams();
+    if (filters.action) params.append('action', filters.action);
+    if (filters.entityType) params.append('entityType', filters.entityType);
+    if (filters.userId) params.append('userId', filters.userId);
+    if (filters.from) params.append('from', filters.from);
+    if (filters.to) params.append('to', filters.to);
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+    
+    const queryString = params.toString();
+    const url = `/api/v1/audit${queryString ? `?${queryString}` : ''}`;
+    
+    return apiClient.get(url, options);
+  },
 };

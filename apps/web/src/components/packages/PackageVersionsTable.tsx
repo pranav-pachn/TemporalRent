@@ -8,7 +8,15 @@ import { CheckCircle, Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
-export function PackageVersionsTable({ packageId, versions }: { packageId: string; versions: PackageVersion[] }) {
+export function PackageVersionsTable({ 
+  packageId, 
+  versions, 
+  onRefresh 
+}: { 
+  packageId: string; 
+  versions: PackageVersion[]; 
+  onRefresh?: () => void;
+}) {
   const router = useRouter();
   const [publishing, setPublishing] = useState<string | null>(null);
 
@@ -16,7 +24,11 @@ export function PackageVersionsTable({ packageId, versions }: { packageId: strin
     setPublishing(versionId);
     try {
       await apiClient.activatePackageVersion(packageId, versionId);
-      router.refresh();
+      if (onRefresh) {
+        onRefresh();
+      } else {
+        router.refresh();
+      }
     } catch (error) {
       console.error("Failed to publish version:", error);
       alert("Failed to publish version. Please check console.");

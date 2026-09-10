@@ -17,6 +17,7 @@ export async function checkAvailabilityHandler(req: Request, res: Response) {
   }
 
   const { lines, eventStart, eventEnd } = result.data;
+  console.log('checkAvailability lines received:', lines);
   const businessId = req.auth!.businessId;
 
   try {
@@ -32,6 +33,7 @@ export async function checkAvailabilityHandler(req: Request, res: Response) {
     });
   } catch (error) {
     if (error instanceof ApiError) {
+      console.error('Availability ApiError:', error.statusCode, error.code, error.message);
       return res.status(error.statusCode).json({
         code: error.code,
         message: error.message,

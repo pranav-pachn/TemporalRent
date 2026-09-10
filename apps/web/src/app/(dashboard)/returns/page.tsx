@@ -23,11 +23,16 @@ import {
   User,
   Package
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 export default function ReturnsPage() {
+  const router = useRouter();
   const [data, setData] = useState<ReturnsListResponse>({ awaiting: [], completed: [] });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'AWAITING' | 'COMPLETED'>('AWAITING');
 
   // Inspection Modal State
@@ -50,10 +55,16 @@ export default function ReturnsPage() {
   const loadData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await apiClient.fetchReturnsList();
       setData(res);
     } catch (e: any) {
       console.error('Failed to load returns list', e);
+      if (e.status === 401 || e.code === 'UNAUTHENTICATED') {
+        router.push('/login');
+        return;
+      }
+      setError(e.message || 'Failed to load returns list');
     } finally {
       setLoading(false);
     }
@@ -203,7 +214,13 @@ export default function ReturnsPage() {
 
       {/* Content */}
       {loading ? (
-        <div className="text-neutral-400 py-16 text-center">Loading returns data...</div>
+        <div className="py-12">
+          <LoadingState />
+        </div>
+      ) : error ? (
+        <div className="py-8">
+          <ErrorState message={error} onRetry={loadData} />
+        </div>
       ) : activeTab === 'AWAITING' ? (
         data.awaiting.length === 0 ? (
           <div className="bg-neutral-900 border border-white/5 rounded-2xl py-20 text-center">

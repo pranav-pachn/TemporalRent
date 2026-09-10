@@ -1,35 +1,77 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { BookingDTO } from '@/types/bookings';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import Link from 'next/link';
-import { Plus, ChevronRight, Calendar } from 'lucide-react';
+import { Plus, ChevronRight, Calendar, Trash2 } from 'lucide-react';
 
 export default function BookingsPage() {
+  const router = useRouter();
   const [bookings, setBookings] = useState<BookingDTO[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadBookings = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await apiClient.fetchBookingsList(1, 50);
+      setBookings(res.data);
+    } catch (err: any) {
+      console.error('Failed to load bookings:', err);
+      if (err.status === 401 || err.code === 'UNAUTHENTICATED') {
+        router.push('/login');
+        return;
+      }
+      setError(err.message || 'Failed to load bookings');
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await apiClient.fetchBookingsList(1, 50);
-        setBookings(res.data);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
+    loadBookings();
+  }, [loadBookings]);
+
+  const handleCancelBooking = async (id: string) => {
+    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+    try {
+      await apiClient.cancelBooking(id, crypto.randomUUID(), 'Cancelled via dashboard');
+      loadBookings();
+    } catch (err: any) {
+      alert(err.message || 'Failed to cancel booking');
     }
-    load();
-  }, []);
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <LoadingState />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <ErrorState 
+          message={error} 
+          onRetry={loadBookings} 
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white tracking-tight">Bookings</h1>
         <Link 
-          href="/bookings/new"
+          href="/bookings/new" 
           className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg flex items-center transition-colors"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -37,9 +79,7 @@ export default function BookingsPage() {
         </Link>
       </div>
 
-      {loading ? (
-        <div className="text-neutral-400 py-12 text-center">Loading bookings...</div>
-      ) : bookings.length === 0 ? (
+      {bookings.length === 0 ? (
         <div className="bg-neutral-900 border border-white/5 rounded-2xl py-24 text-center">
           <Calendar className="w-12 h-12 text-neutral-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-white mb-2">No bookings yet</h3>
@@ -74,13 +114,24 @@ export default function BookingsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <Link 
-                      href={`/bookings/${booking.id}`}
-                      className="inline-flex items-center text-blue-400 hover:text-blue-300 font-medium"
-                    >
-                      View
-                      <ChevronRight className="w-4 h-4 ml-1" />
-                    </Link>
+                    <div className="flex justify-end items-center space-x-3">
+                      <Link 
+                        href={`/bookings/${booking.id}`}
+                        className="inline-flex items-center text-blue-400 hover:text-blue-300 font-medium"
+                      >
+                        View
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Link>
+                      {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
+                        <button
+                          onClick={() => handleCancelBooking(booking.id)}
+                          className="text-red-400 hover:text-red-300 p-1 rounded-md hover:bg-white/5 transition-colors"
+                          title="Cancel Booking"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -23,34 +23,43 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   try {
     const session = await validateSession(token);
     
-    if (!session || !session.user) {
-      // Clear invalid cookie
-      res.clearCookie('tr_session');
-      return res.status(401).json({
-        code: 'UNAUTHENTICATED',
-        message: 'Invalid or expired session',
-      });
+    if (session && session.user) {
+      if (!session.businessId && req.path !== '/workspace-setup' && req.path !== '/me') {
+        return res.status(403).json({
+          code: 'ONBOARDING_INCOMPLETE',
+          message: 'Workspace setup is required',
+        });
+      }
+
+      req.auth = {
+        userId: session.user.id,
+        businessId: session.businessId || '',
+        role: session.user.role,
+      };
+      req.user = session.user;
+
+      return next();
     }
 
-    // Reject users who haven't completed onboarding if they access regular API routes
-    // (Except for the workspace-setup route, which they need to call to finish onboarding)
-    if (!session.businessId && req.path !== '/workspace-setup' && req.path !== '/me') {
-      return res.status(403).json({
-        code: 'ONBOARDING_INCOMPLETE',
-        message: 'Workspace setup is required',
-      });
+    // Fallback: check if valid JWT (for external API clients and integration tests)
+    try {
+      const { verifyAccessToken } = await import('../lib/jwt');
+      const jwtPayload = await verifyAccessToken(token);
+      req.auth = {
+        userId: jwtPayload.userId,
+        businessId: jwtPayload.businessId,
+        role: jwtPayload.role,
+      };
+      return next();
+    } catch {
+      // Neither session nor JWT valid
     }
 
-    req.auth = {
-      userId: session.user.id,
-      businessId: session.businessId || '', // Empty string for not yet onboarded
-      role: session.user.role,
-    };
-    
-    // Attach user entity for convenience
-    req.user = session.user;
-
-    next();
+    res.clearCookie('tr_session');
+    return res.status(401).json({
+      code: 'UNAUTHENTICATED',
+      message: 'Invalid or expired session',
+    });
   } catch (error) {
     console.error('Auth middleware error:', error);
     res.clearCookie('tr_session');

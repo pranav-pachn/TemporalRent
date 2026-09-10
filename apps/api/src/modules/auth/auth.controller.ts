@@ -118,6 +118,59 @@ export class AuthController {
     return res.status(200).json({ user: safeUser, business: user.business });
   }
 
+  async devLogin(req: Request, res: Response) {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(404).json({ code: 'NOT_FOUND', message: 'Not available in production' });
+    }
+
+    try {
+      let user = await prisma.user.findFirst({
+        where: { email: 'admin@acme.com' },
+        include: { business: true },
+      });
+
+      if (!user) {
+        let business = await prisma.business.findFirst({
+          where: { slug: 'acme-events' },
+        });
+
+        if (!business) {
+          business = await prisma.business.create({
+            data: {
+              name: 'Acme Event Rentals',
+              slug: 'acme-events',
+              timezone: 'America/New_York',
+            },
+          });
+        }
+
+        user = await prisma.user.create({
+          data: {
+            businessId: business.id,
+            email: 'admin@acme.com',
+            name: 'Admin User',
+            role: 'OWNER',
+          },
+          include: { business: true },
+        });
+      }
+
+      const { createSession } = await import('../../lib/session');
+      const session = await createSession(user.id, user.businessId);
+
+      res.cookie('tr_session', session.token, COOKIE_OPTIONS);
+
+      const { passwordHash, ...safeUser } = user;
+      return res.status(200).json({
+        user: safeUser,
+        business: user.business,
+      });
+    } catch (error) {
+      console.error('Dev login error:', error);
+      return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'Dev login failed' });
+    }
+  }
+
   async logout(req: Request, res: Response) {
     const token = req.cookies?.tr_session;
     if (token) {

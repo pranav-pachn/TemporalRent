@@ -65,7 +65,7 @@ export class AuditService {
     const [events, total] = await Promise.all([
       prisma.auditEvent.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take: limit,
       }),

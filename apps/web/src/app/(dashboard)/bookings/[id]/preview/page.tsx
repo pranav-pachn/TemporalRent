@@ -8,6 +8,8 @@ import { InventoryItem, InventoryReservation } from '@/types/inventory';
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { ConflictModal } from '@/components/bookings/ConflictModal';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 export default function BookingPreviewPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -27,36 +29,39 @@ export default function BookingPreviewPage({ params }: { params: { id: string } 
   
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [availRes, invRes] = await Promise.all([
-          apiClient.checkBookingAvailability(id),
-          apiClient.fetchInventoryItems()
-        ]);
-        
-        setAvailability(availRes);
-        
-        const map: Record<string, InventoryItem> = {};
-        invRes.data.forEach((i: InventoryItem) => map[i.id] = i);
-        setInventoryMap(map);
-
-        // Fetch conflicts for shortages
-        const shortages = availRes.items.filter((i: AvailabilityItemResult) => i.shortage > 0);
-        
-        // We don't have full booking details fetched here easily without a new GET /bookings/:id endpoint.
-        // Assuming we can fetch conflicts when needed if we had dates. Since we don't have the dates here natively, 
-        // we'll mock the conflict fetch or skip if dates aren't available. 
-        // Actually, the user asked for Conflict Explanations. We can just show the shortage for now, 
-        // or add a quick GET booking to get dates.
-      } catch (e: any) {
-        console.error(e);
-        setError('Failed to load availability');
-      } finally {
-        setLoading(false);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [availRes, invRes, bookingRes] = await Promise.all([
+        apiClient.checkBookingAvailability(id),
+        apiClient.fetchInventoryItems(),
+        apiClient.fetchBookingById(id)
+      ]);
+      
+      setAvailability(availRes);
+      if (bookingRes.data) {
+        setBooking(bookingRes.data);
+        setStatus(bookingRes.data.status as any);
       }
+      
+      const map: Record<string, InventoryItem> = {};
+      invRes.data.forEach((i: InventoryItem) => map[i.id] = i);
+      setInventoryMap(map);
+    } catch (e: any) {
+      console.error('Failed to load booking preview:', e);
+      if (e.status === 401 || e.code === 'UNAUTHENTICATED') {
+        router.push('/login');
+        return;
+      }
+      setError(e.message || 'Failed to load availability');
+    } finally {
+      setLoading(false);
     }
-    load();
+  };
+
+  useEffect(() => {
+    loadData();
   }, [id]);
 
   const handleQuote = async () => {
@@ -92,8 +97,21 @@ export default function BookingPreviewPage({ params }: { params: { id: string } 
     }
   };
 
-  if (loading) return <div className="p-8 text-neutral-400">Analyzing availability...</div>;
-  if (!availability) return null;
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <LoadingState />
+      </div>
+    );
+  }
+
+  if (error || !availability) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <ErrorState message={error || 'Failed to analyze availability'} onRetry={loadData} />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

@@ -1,6 +1,33 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { apiClient } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
+import { Sparkles, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { refetchSession } = useAuth();
+  const [devLoading, setDevLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleDevLogin = async () => {
+    try {
+      setDevLoading(true);
+      setError(null);
+      await apiClient.post('/api/v1/auth/dev-login', {});
+      await refetchSession();
+      router.push('/dashboard');
+    } catch (e: any) {
+      console.error('Dev login failed', e);
+      setError(e.message || 'Dev login failed');
+    } finally {
+      setDevLoading(false);
+    }
+  };
+
   return (
     <div className="bg-surface border border-border rounded-xl shadow-xl p-8 text-center space-y-8">
       <div>
@@ -10,9 +37,36 @@ export default function LoginPage() {
         <p className="text-text-muted">Inventory without surprises.</p>
       </div>
 
-      <div className="pt-4">
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
+
+      <div className="pt-2 space-y-3">
+        {/* Quick Dev Login for local development and testing */}
+        <button
+          type="button"
+          onClick={handleDevLogin}
+          disabled={devLoading}
+          className="flex items-center justify-center gap-2 w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-4 py-3 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+        >
+          {devLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Sparkles className="w-5 h-5" />
+          )}
+          <span>Quick Dev Login (Local Test)</span>
+        </button>
+
+        <div className="relative flex items-center justify-center my-4">
+          <div className="border-t border-border w-full"></div>
+          <span className="bg-surface px-3 text-xs text-text-muted uppercase">or</span>
+          <div className="border-t border-border w-full"></div>
+        </div>
+
         <a 
-          href={`${process.env.NEXT_PUBLIC_API_URL}/auth/google`}
+          href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/auth/google`}
           className="flex items-center justify-center gap-3 w-full bg-white text-black font-semibold px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">

@@ -35,6 +35,10 @@ export interface AvailabilityItemResult {
   required: number;
   available: number;
   shortage: number;
+  period?: {
+    start: string;
+    end: string;
+  };
 }
 
 export interface ConflictingReservationDTO {

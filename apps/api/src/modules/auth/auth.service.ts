@@ -75,15 +75,61 @@ export class AuthService {
   }
 
   async setupWorkspace(userId: string, input: WorkspaceSetupInput) {
-    const slug = input.businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    
+    let slug = input.businessName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!slug) slug = 'workspace';
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { business: true },
+    });
+
+    if (!currentUser) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
     // Check if slug exists
     const existingBusiness = await prisma.business.findUnique({
       where: { slug },
     });
 
+    if (existingBusiness && currentUser.businessId === existingBusiness.id) {
+      const result = await prisma.$transaction(async (tx) => {
+        const business = await tx.business.update({
+          where: { id: existingBusiness.id },
+          data: {
+            name: input.businessName,
+            timezone: input.timezone,
+          },
+        });
+
+        const user = await tx.user.update({
+          where: { id: userId },
+          data: {
+            role: UserRole.OWNER,
+            ...(input.name ? { name: input.name } : {}),
+          },
+        });
+
+        await tx.session.updateMany({
+          where: { userId },
+          data: { businessId: business.id },
+        });
+
+        return { business, user };
+      });
+
+      return result;
+    }
+
     if (existingBusiness) {
-      throw new Error('BUSINESS_SLUG_TAKEN');
+      // Slug taken by another business: generate a unique slug
+      let suffix = 1;
+      let candidateSlug = `${slug}-${suffix}`;
+      while (await prisma.business.findUnique({ where: { slug: candidateSlug } })) {
+        suffix++;
+        candidateSlug = `${slug}-${suffix}`;
+      }
+      slug = candidateSlug;
     }
 
     const result = await prisma.$transaction(async (tx) => {

@@ -134,8 +134,8 @@ model Business {
   slug                       String   @unique
   plan                       String   @default("FREE")
   timezone                   String   @default("UTC")
-  defaultBufferBeforeMinutes Int      @default(0)
-  defaultBufferAfterMinutes  Int      @default(0)
+  defaultBufferBeforeMinutes Int      @default(120)
+  defaultBufferAfterMinutes  Int      @default(720)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 

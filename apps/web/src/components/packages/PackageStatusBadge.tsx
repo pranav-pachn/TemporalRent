@@ -15,9 +15,22 @@ export function PackageStatusBadge({ status }: { status: PackageVersionStatus })
     }
   };
 
+  const getLabel = () => {
+    switch (status) {
+      case 'ACTIVE':
+        return 'PUBLISHED';
+      case 'DRAFT':
+        return 'DRAFT';
+      case 'ARCHIVED':
+        return 'ARCHIVED';
+      default:
+        return status;
+    }
+  };
+
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getBadgeStyle()}`}>
-      {status}
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getBadgeStyle()}`}>
+      {getLabel()}
     </span>
   );
 }

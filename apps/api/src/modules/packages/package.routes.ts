@@ -53,6 +53,12 @@ packageRouter.post(
   (req, res) => packageController.createVersion(req, res)
 );
 
+packageRouter.post(
+  '/:packageId/versions/:id/activate',
+  authorize(UserRole.OWNER, UserRole.ADMIN, UserRole.WAREHOUSE),
+  (req, res) => packageController.activateVersion(req, res)
+);
+
 // Package Version Direct Router (for /api/package-versions)
 export const packageVersionRouter = Router();
 packageVersionRouter.use(authenticate);

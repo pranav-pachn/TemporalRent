@@ -9,15 +9,21 @@ import { InventoryItem } from '@/types/inventory';
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { ConflictModal } from '@/components/bookings/ConflictModal';
+import { CreateCustomerModal } from '@/components/customers/CreateCustomerModal';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
 
 export default function BookingBuilderPage() {
   const router = useRouter();
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   
   // Data State
   const [customers, setCustomers] = useState<CustomerDTO[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
+  const [initialError, setInitialError] = useState<string | null>(null);
   
   // Form State
   const [customerId, setCustomerId] = useState('');
@@ -39,25 +45,33 @@ export default function BookingBuilderPage() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const loadInitialData = async () => {
+    try {
+      setLoadingInitial(true);
+      setInitialError(null);
+      const [custRes, packRes, invRes] = await Promise.all([
+        apiClient.fetchCustomers(),
+        apiClient.fetchPackages(),
+        apiClient.fetchInventoryItems()
+      ]);
+      setCustomers(custRes.data);
+      setPackages(packRes.data);
+      setInventory(invRes.data);
+    } catch (e: any) {
+      console.error('Failed to load initial data', e);
+      if (e.status === 401 || e.code === 'UNAUTHENTICATED') {
+        router.push('/login');
+        return;
+      }
+      setInitialError(e.message || 'Failed to load booking builder options');
+    } finally {
+      setLoadingInitial(false);
+    }
+  };
+
   // Load Initial Options
   useEffect(() => {
-    async function load() {
-      try {
-        const [custRes, packRes, invRes] = await Promise.all([
-          apiClient.fetchCustomers(),
-          apiClient.fetchPackages(),
-          apiClient.fetchInventoryItems()
-        ]);
-        setCustomers(custRes.data);
-        setPackages(packRes.data);
-        setInventory(invRes.data);
-      } catch (e: any) {
-        console.error('Failed to load initial data', e);
-      } finally {
-        setLoadingInitial(false);
-      }
-    }
-    load();
+    loadInitialData();
   }, []);
 
   // Real-time Availability Check
@@ -97,6 +111,9 @@ export default function BookingBuilderPage() {
       } catch (e: any) {
         if (e.name !== 'AbortError') {
           console.error('Availability check failed:', e);
+          if (e.status === 404 || e.code === 'PACKAGE_VERSION_NOT_FOUND' || e.code === 'INVENTORY_ITEM_NOT_FOUND') {
+            setSubmitError('A selected item or package was not found in the database (it may have been deleted). Please refresh the page.');
+          }
           setAvailability(null);
         }
       } finally {
@@ -172,10 +189,31 @@ export default function BookingBuilderPage() {
     }
   };
 
-  if (loadingInitial) return <div className="p-8 text-neutral-400">Loading builder...</div>;
+  if (loadingInitial) {
+    return (
+      <div className="p-8 max-w-3xl mx-auto">
+        <LoadingState />
+      </div>
+    );
+  }
+
+  if (initialError) {
+    return (
+      <div className="p-8 max-w-3xl mx-auto">
+        <ErrorState message={initialError} onRetry={loadInitialData} />
+      </div>
+    );
+  }
 
   const hasShortages = availability && !availability.available;
-  const isFormComplete = customerId && eventName && eventStart && eventEnd && lines.length > 0;
+  const isFormComplete = Boolean(
+    customerId && 
+    eventName && 
+    eventStart && 
+    eventEnd && 
+    lines.length > 0 && 
+    lines.every(l => (l.type === 'PACKAGE' && l.packageVersionId) || (l.type === 'INVENTORY_ITEM' && l.inventoryItemId))
+  );
 
   if (status === 'CONFIRMED') {
     return (
@@ -234,7 +272,16 @@ export default function BookingBuilderPage() {
         
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-neutral-300">Customer</label>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-neutral-300">Customer</label>
+              <button
+                type="button"
+                onClick={() => setIsCustomerModalOpen(true)}
+                className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
+              >
+                + New Customer
+              </button>
+            </div>
             <select
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value)}
@@ -260,21 +307,19 @@ export default function BookingBuilderPage() {
 
           <div className="space-y-2">
             <label className="block text-sm font-medium text-neutral-300">Start Date & Time</label>
-            <input
-              type="datetime-local"
+            <DateTimePicker
               value={eventStart}
-              onChange={(e) => setEventStart(e.target.value)}
-              className="w-full bg-neutral-950 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              onChange={setEventStart}
+              className="w-full"
             />
           </div>
 
           <div className="space-y-2">
             <label className="block text-sm font-medium text-neutral-300">End Date & Time</label>
-            <input
-              type="datetime-local"
+            <DateTimePicker
               value={eventEnd}
-              onChange={(e) => setEventEnd(e.target.value)}
-              className="w-full bg-neutral-950 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              onChange={setEventEnd}
+              className="w-full"
             />
           </div>
         </div>
@@ -310,13 +355,16 @@ export default function BookingBuilderPage() {
                     className="w-full bg-transparent text-white text-sm focus:outline-none"
                   >
                     <option value="" className="bg-neutral-900">Select Package...</option>
-                    {packages.map(p => (
-                      p.publishedVersionId && (
-                        <option key={p.id} value={p.publishedVersionId} className="bg-neutral-900">
-                          {p.name} (V{p.versionCount})
+                    {packages.map(p => {
+                      const activeVersion = p.packageVersions?.find(v => v.status === 'ACTIVE') ||
+                        (p.publishedVersionId ? { id: p.publishedVersionId, versionNumber: p.versionCount || 1 } : p.packageVersions?.[0]);
+                      if (!activeVersion) return null;
+                      return (
+                        <option key={p.id} value={activeVersion.id} className="bg-neutral-900">
+                          {p.name} (v{activeVersion.versionNumber || 1})
                         </option>
-                      )
-                    ))}
+                      );
+                    })}
                   </select>
                 ) : (
                   <select
@@ -371,7 +419,40 @@ export default function BookingBuilderPage() {
             Fill out dates and items to see live availability.
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Operational Window UI */}
+            {availability.items.length > 0 && availability.items[0].period && eventStart && eventEnd && (
+              <div className="bg-neutral-950 border border-white/10 rounded-xl p-4 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-2">Event Period</h3>
+                    <div className="text-sm text-neutral-300">
+                      <div>{new Date(eventStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                      <div className="text-neutral-400">
+                        {new Date(eventStart).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} &rarr; {new Date(eventEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-[10px] font-semibold text-brand-500 uppercase tracking-wider mb-2">Operational Window</h3>
+                    <div className="text-sm text-brand-300">
+                      <div>{new Date(availability.items[0].period!.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(availability.items[0].period!.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
+                      <div className="text-brand-400/80">
+                        &rarr; {new Date(availability.items[0].period!.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(availability.items[0].period!.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="pt-3 border-t border-white/5">
+                  <p className="text-xs text-neutral-500 leading-relaxed">
+                    Inventory is reserved for the operational window to account for setup, transport, pickup, and reconciliation.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
             {availability.items.map((item) => {
               const isShortage = item.shortage > 0;
               return (
@@ -395,13 +476,48 @@ export default function BookingBuilderPage() {
                     </div>
                   </div>
                   {isShortage && (
-                    <div className="pl-7 mt-1 text-xs text-red-400/80">
-                      Shortage: {item.shortage} units
+                    <div className="pl-7 mt-2 space-y-3">
+                      <div className="text-xs text-red-400/80 font-medium">
+                        Shortage: {item.shortage} units
+                      </div>
+                      
+                      {/* Inline Conflict Explanation */}
+                      {availability.conflicts?.filter(c => c.inventoryItemId === item.inventoryItemId).length > 0 && (
+                        <div className="bg-neutral-950 border border-white/5 rounded-lg p-3 space-y-3">
+                          <div className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">
+                            Conflicting Bookings
+                          </div>
+                          <div className="space-y-2">
+                            {availability.conflicts
+                              .filter(c => c.inventoryItemId === item.inventoryItemId)
+                              .map((conflict, idx) => {
+                                const startDate = new Date(conflict.effectiveStart);
+                                const endDate = new Date(conflict.effectiveEnd);
+                                const dateStr = startDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+                                const startTimeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                                const endTimeStr = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+                                return (
+                                  <div key={idx} className="bg-neutral-900 border border-white/5 rounded p-2 text-xs">
+                                    <div className="flex justify-between items-start mb-1">
+                                      <span className="font-medium text-white">{conflict.eventName || conflict.bookingName || `Booking #${conflict.bookingId?.substring(0, 8)}`}</span>
+                                      <span className="text-amber-400 font-medium">Qty: {conflict.quantity}</span>
+                                    </div>
+                                    <div className="text-neutral-400">
+                                      {dateStr} &middot; {startTimeStr} &ndash; {endTimeStr}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               );
             })}
+            </div>
           </div>
         )}
       </div>
@@ -426,6 +542,15 @@ export default function BookingBuilderPage() {
           {submitting ? 'Securing Transaction...' : hasShortages ? 'Resolve Inventory Shortage' : 'Confirm Booking'}
         </button>
       </div>
+
+      <CreateCustomerModal
+        isOpen={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        onSuccess={(newCustomer) => {
+          setCustomers((prev) => [...prev, newCustomer]);
+          setCustomerId(newCustomer.id);
+        }}
+      />
     </div>
   );
 }

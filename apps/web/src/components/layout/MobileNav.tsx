@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Calendar, LayoutDashboard, Package, Boxes, Truck, Undo2, AlertTriangle, ScrollText, Settings } from 'lucide-react';
+import { Menu, X, Calendar, LayoutDashboard, Package, Boxes, Truck, Undo2, AlertTriangle, ScrollText, Settings, Users } from 'lucide-react';
 
 const navGroups = [
   {
@@ -17,6 +17,7 @@ const navGroups = [
     label: 'OPERATIONS',
     items: [
       { name: 'Bookings', href: '/bookings', icon: ScrollText },
+      { name: 'Customers', href: '/customers', icon: Users },
       { name: 'Inventory', href: '/inventory', icon: Boxes },
       { name: 'Packages', href: '/packages', icon: Package },
     ],

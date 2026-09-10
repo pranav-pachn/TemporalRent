@@ -1,5 +1,9 @@
-import { Suspense } from 'react';
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import { DashboardDTO } from '@/types/dashboard';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { TodaySummaryBar } from '@/components/dashboard/TodaySummaryBar';
 import { InventoryAlerts } from '@/components/dashboard/InventoryAlerts';
@@ -7,96 +11,82 @@ import { TodayOperations } from '@/components/dashboard/TodayOperations';
 import { UpcomingBookings } from '@/components/dashboard/UpcomingBookings';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { useAuth } from '@/hooks/useAuth';
 
-// In a real implementation with auth, this token would come from cookies/session
-const dummyAuthHeader = {
-  // We'll pass some stub headers just to make the backend happy for phase 22 if needed,
-  // But Next.js Server Components need to pass cookies from next/headers in real app.
-};
+export default function DashboardPage() {
+  const router = useRouter();
+  const { user: authUser, business: authBusiness } = useAuth();
+  const [data, setData] = useState<DashboardDTO | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-async function DashboardContent() {
-  try {
-    const data = await apiClient.fetchDashboard({
-      headers: {
-        // "Authorization": `Bearer ...`
-      },
-      next: { revalidate: 60 } // Cache for 60s
-    });
+  const loadDashboard = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await apiClient.fetchDashboard();
+      setData(res);
+    } catch (err: any) {
+      console.error('Failed to fetch dashboard data:', err);
+      if (err.status === 401 || err.code === 'UNAUTHENTICATED') {
+        router.push('/login');
+        return;
+      }
+      if (err.status === 403 && err.code === 'ONBOARDING_INCOMPLETE') {
+        router.push('/setup');
+        return;
+      }
+      setError(err.message || 'Failed to load dashboard operational data');
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
 
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  if (loading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
-        <DashboardHeader userName={data.user.name} />
-        <TodaySummaryBar {...data.today} />
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
-            <InventoryAlerts alerts={data.inventoryAlerts} />
-          </div>
-          <div className="lg:col-span-1">
-            <TodayOperations 
-              dispatches={data.todayDispatches}
-              returns={data.todayReturns} 
-            />
-          </div>
-          <div className="lg:col-span-1">
-            <UpcomingBookings bookings={data.upcomingBookings} />
-          </div>
-        </div>
-      </div>
-    );
-  } catch (error) {
-    console.warn("Dashboard fetch failed, falling back to mock data for demonstration:", error);
-    
-    const mockData = {
-      user: { name: 'Admin (Demo Mode)' },
-      today: { events: 12, dispatches: 8, returns: 5 },
-      inventoryAlerts: [
-        { id: '1', name: 'QSC K12.2 Speakers', totalQty: 10, committedQty: 10, availableQty: 0, urgency: 'attention' as const },
-        { id: '2', name: 'Chauvet Wash Lights', totalQty: 8, committedQty: 12, availableQty: -4, urgency: 'critical' as const }
-      ],
-      todayDispatches: [
-        { id: '1', bookingId: 'b1', clientName: 'Stark Industries', scheduledTime: new Date().toISOString(), itemCount: 4, status: 'PICKING' },
-        { id: '2', bookingId: 'b2', clientName: 'Wayne Enterprises', scheduledTime: new Date(Date.now() + 3600000).toISOString(), itemCount: 12, status: 'READY' }
-      ],
-      todayReturns: [
-        { id: '3', bookingId: 'b3', clientName: 'Oscorp', scheduledTime: new Date().toISOString(), itemCount: 6, status: 'EXPECTED' }
-      ],
-      upcomingBookings: [
-        { id: '4', clientName: 'Daily Planet', eventDate: new Date(Date.now() + 86400000).toISOString(), status: 'CONFIRMED' }
-      ]
-    };
-
-    return (
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
-        <div className="bg-urgency-attention/10 text-urgency-attention p-3 rounded-md text-sm mb-4 border border-urgency-attention/20">
-          Showing mock data because backend authentication is not fully configured yet.
-        </div>
-        <DashboardHeader userName={mockData.user.name} />
-        <TodaySummaryBar {...mockData.today} />
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
-            <InventoryAlerts alerts={mockData.inventoryAlerts} />
-          </div>
-          <div className="lg:col-span-1">
-            <TodayOperations 
-              dispatches={mockData.todayDispatches}
-              returns={mockData.todayReturns} 
-            />
-          </div>
-          <div className="lg:col-span-1">
-            <UpcomingBookings bookings={mockData.upcomingBookings} />
-          </div>
-        </div>
+      <div className="p-6 max-w-7xl mx-auto">
+        <LoadingState />
       </div>
     );
   }
-}
 
-export default function DashboardPage() {
+  if (error || !data) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <ErrorState 
+          message={error || 'Failed to load operational data'} 
+          onRetry={loadDashboard} 
+        />
+      </div>
+    );
+  }
+
+  const businessName = data.business?.name || authBusiness?.name;
+  const userName = data.user?.name || authUser?.name || 'User';
+
   return (
-    <Suspense fallback={<div className="p-6 max-w-7xl mx-auto"><LoadingState /></div>}>
-      <DashboardContent />
-    </Suspense>
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <DashboardHeader businessName={businessName} userName={userName} />
+      <TodaySummaryBar {...data.today} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <InventoryAlerts alerts={data.inventoryAlerts} />
+        </div>
+        <div className="lg:col-span-1">
+          <TodayOperations 
+            dispatches={data.todayDispatches}
+            returns={data.todayReturns} 
+          />
+        </div>
+        <div className="lg:col-span-1">
+          <UpcomingBookings bookings={data.upcomingBookings} />
+        </div>
+      </div>
+    </div>
   );
 }

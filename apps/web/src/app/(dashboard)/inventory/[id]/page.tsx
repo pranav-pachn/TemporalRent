@@ -1,21 +1,64 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import { InventoryItem } from '@/types/inventory';
 import { InventoryStatusBadge } from '@/components/inventory/InventoryStatusBadge';
 import { InventoryDetailTabs } from '@/components/inventory/InventoryDetailTabs';
+import { EditInventoryModal } from '@/components/inventory/EditInventoryModal';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import Link from 'next/link';
 import { ArrowLeft, Edit } from 'lucide-react';
-import { notFound } from 'next/navigation';
 
-export default async function InventoryDetailPage({ params }: { params: { id: string } }) {
-  let item;
-  try {
-    const response = await apiClient.fetchInventoryItem(params.id, {
-      next: { revalidate: 0 }
-    });
-    item = response.data;
-  } catch (error) {
-    // If not found, return 404
-    console.error("Failed to fetch inventory item", error);
-    notFound();
+export default function InventoryDetailPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
+  const [item, setItem] = useState<InventoryItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const loadItem = useCallback(async () => {
+    if (params.id === 'new') return;
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiClient.fetchInventoryItem(params.id);
+      setItem(response.data);
+    } catch (err: any) {
+      console.error('Failed to fetch inventory item:', err);
+      if (err.status === 401 || err.code === 'UNAUTHENTICATED') {
+        router.push('/login');
+        return;
+      }
+      setError(err.status === 404 ? 'Inventory item not found' : (err.message || 'Failed to load item'));
+    } finally {
+      setLoading(false);
+    }
+  }, [params.id, router]);
+
+  useEffect(() => {
+    loadItem();
+  }, [loadItem]);
+
+  if (loading) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <LoadingState />
+      </div>
+    );
+  }
+
+  if (error || !item) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <ErrorState 
+          message={error || 'Item not found'} 
+          onRetry={loadItem} 
+        />
+      </div>
+    );
   }
 
   return (
@@ -40,7 +83,10 @@ export default async function InventoryDetailPage({ params }: { params: { id: st
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="inline-flex items-center justify-center px-4 py-2 border border-border bg-background text-text font-medium rounded-lg hover:bg-background-dark transition-colors shadow-sm text-sm">
+          <button 
+            onClick={() => setIsEditModalOpen(true)}
+            className="inline-flex items-center justify-center px-4 py-2 border border-border bg-background text-text font-medium rounded-lg hover:bg-background-dark transition-colors shadow-sm text-sm"
+          >
             <Edit className="w-4 h-4 mr-2" />
             Edit Item
           </button>
@@ -58,8 +104,20 @@ export default async function InventoryDetailPage({ params }: { params: { id: st
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-text-muted">Usable</span>
-                <span className={`font-medium ${item.usableQty === 0 ? 'text-red-500' : 'text-green-500'}`}>
+                <span className={`font-medium ${item.usableQty === 0 ? 'text-red-500' : 'text-text'}`}>
                   {item.usableQty}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-text-muted">Active Committed</span>
+                <span className={`font-medium ${(item.committedQty ?? 0) > 0 ? 'text-amber-400 font-semibold' : 'text-text'}`}>
+                  {item.committedQty ?? 0}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-text-muted">Currently Available</span>
+                <span className={`font-medium ${(item.availableQty ?? item.usableQty) === 0 ? 'text-red-500' : 'text-emerald-400 font-semibold'}`}>
+                  {item.availableQty ?? item.usableQty}
                 </span>
               </div>
               <div className="border-t border-border pt-4 space-y-3">
@@ -84,6 +142,13 @@ export default async function InventoryDetailPage({ params }: { params: { id: st
           <InventoryDetailTabs itemId={item.id} />
         </div>
       </div>
+
+      <EditInventoryModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        item={item}
+        onUpdated={loadItem}
+      />
     </div>
   );
 }

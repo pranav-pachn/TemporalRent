@@ -53,10 +53,15 @@ export class PackageService {
     });
 
     return Promise.all(
-      packages.map(async (pkg) => ({
-        ...pkg,
-        packageVersions: await this.attachBookingCounts(pkg.packageVersions),
-      }))
+      packages.map(async (pkg) => {
+        const activeVersion = pkg.packageVersions.find(v => v.status === PackageVersionStatus.ACTIVE);
+        return {
+          ...pkg,
+          publishedVersionId: activeVersion?.id,
+          versionCount: pkg.packageVersions.length,
+          packageVersions: await this.attachBookingCounts(pkg.packageVersions),
+        };
+      })
     );
   }
 
@@ -90,8 +95,12 @@ export class PackageService {
 
     if (!pkg) return null;
 
+    const activeVersion = pkg.packageVersions.find(v => v.status === PackageVersionStatus.ACTIVE);
+
     return {
       ...pkg,
+      publishedVersionId: activeVersion?.id,
+      versionCount: pkg.packageVersions.length,
       packageVersions: await this.attachBookingCounts(pkg.packageVersions),
     };
   }

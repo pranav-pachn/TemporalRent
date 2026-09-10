@@ -20,19 +20,28 @@ export class DashboardController {
 
       const dashboard = await this.service.getDashboard(businessId);
       
-      // Optionally fetch user name for the UI greeting 
-      // without polluting the auth middleware
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true } // Name isn't in schema, email or logic could be used
-      });
+      // Fetch user name and business details for the UI greeting and workspace context
+      const [user, business] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true, email: true },
+        }),
+        prisma.business.findUnique({
+          where: { id: businessId },
+          select: { name: true, timezone: true },
+        }),
+      ]);
 
-      // Name is not on User model in schema (only email), so we can just use email prefix
-      const userName = user?.email.split('@')[0] || 'User';
+      const userName = user?.name || user?.email?.split('@')[0] || 'User';
+      const businessName = business?.name || 'Workspace';
 
       res.status(200).json({
         ...dashboard,
-        user: { name: userName }
+        user: { name: userName },
+        business: {
+          name: businessName,
+          timezone: business?.timezone || 'UTC',
+        },
       });
     } catch (error) {
       next(error);

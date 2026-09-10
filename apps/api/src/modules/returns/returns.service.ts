@@ -231,6 +231,9 @@ export class ReturnsService {
       });
 
       return returnRecord;
+    }, {
+      maxWait: 15000,
+      timeout: 30000,
     });
   }
 

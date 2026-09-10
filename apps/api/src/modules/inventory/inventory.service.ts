@@ -37,33 +37,79 @@ export class InventoryService {
   }
 
   async listItems(businessId: string) {
-    const items = await prisma.inventoryItem.findMany({
-      where: {
-        businessId,
-        deletedAt: null,
-      },
-      include: {
-        category: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [items, activeReservations] = await Promise.all([
+      prisma.inventoryItem.findMany({
+        where: {
+          businessId,
+          deletedAt: null,
+        },
+        include: {
+          category: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.inventoryReservation.groupBy({
+        by: ['inventoryItemId'],
+        where: {
+          businessId,
+          status: 'ACTIVE',
+        },
+        _sum: {
+          quantity: true,
+        },
+      }),
+    ]);
 
-    return items.map((item) => this.formatItem(item));
+    const committedMap = new Map(
+      activeReservations.map((r) => [r.inventoryItemId, r._sum.quantity || 0])
+    );
+
+    return items.map((item) => {
+      const formatted = this.formatItem(item);
+      const committedQty = committedMap.get(item.id) || 0;
+      const availableQty = Math.max(0, formatted.usableQty - committedQty);
+      return {
+        ...formatted,
+        committedQty,
+        availableQty,
+      };
+    });
   }
 
   async getItemById(businessId: string, id: string) {
-    const item = await prisma.inventoryItem.findFirst({
-      where: {
-        id,
-        businessId,
-        deletedAt: null,
-      },
-      include: {
-        category: true,
-      },
-    });
+    const [item, activeReservations] = await Promise.all([
+      prisma.inventoryItem.findFirst({
+        where: {
+          id,
+          businessId,
+          deletedAt: null,
+        },
+        include: {
+          category: true,
+        },
+      }),
+      prisma.inventoryReservation.aggregate({
+        where: {
+          businessId,
+          inventoryItemId: id,
+          status: 'ACTIVE',
+        },
+        _sum: {
+          quantity: true,
+        },
+      }),
+    ]);
 
-    return item ? this.formatItem(item) : null;
+    if (!item) return null;
+    const formatted = this.formatItem(item);
+    const committedQty = activeReservations._sum.quantity || 0;
+    const availableQty = Math.max(0, formatted.usableQty - committedQty);
+
+    return {
+      ...formatted,
+      committedQty,
+      availableQty,
+    };
   }
 
   async createItem(businessId: string, data: CreateInventoryInput, userId?: string) {

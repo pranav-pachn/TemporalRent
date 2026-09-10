@@ -2,13 +2,16 @@ import { Prisma, AuditAction } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { ConfirmBookingInput } from './reservations.types';
 import { ReservationsRepository } from './reservations.repository';
+import { resolveEffectiveBuffer, getOperationalPeriod } from '../availability/buffer.util';
 import { AvailabilityRepository, CandidateItemWindow } from '../availability/availability.repository';
 import { PackageExpansionService } from '../package-expansion/package-expansion.service';
 import { BookingLineInput } from '../package-expansion/package-expansion.types';
 import { ApiError } from '../../lib/errors';
 import { AuditService } from '../audit/audit.service';
+import { DispatchService } from '../dispatch/dispatch.service';
 
 const auditService = new AuditService();
+const dispatchService = new DispatchService();
 
 export class ReservationsService {
   private reservationsRepo = new ReservationsRepository();
@@ -75,20 +78,21 @@ export class ReservationsService {
           const candidates: CandidateItemWindow[] = [];
           
           for (const item of itemsData) {
-            const bufferBefore =
-              item.bufferBeforeMinutes ??
-              item.category?.bufferBeforeMinutes ??
-              item.business.defaultBufferBeforeMinutes;
+            const { before, after } = resolveEffectiveBuffer({
+              itemBefore: item.bufferBeforeMinutes,
+              itemAfter: item.bufferAfterMinutes,
+              categoryBefore: item.category?.bufferBeforeMinutes,
+              categoryAfter: item.category?.bufferAfterMinutes,
+              businessBefore: item.business.defaultBufferBeforeMinutes,
+              businessAfter: item.business.defaultBufferAfterMinutes,
+            });
 
-            const bufferAfter =
-              item.bufferAfterMinutes ??
-              item.category?.bufferAfterMinutes ??
-              item.business.defaultBufferAfterMinutes;
+            const { effectiveStart, effectiveEnd } = getOperationalPeriod(baseStart, baseEnd, before, after);
 
             candidates.push({
               inventoryItemId: item.id,
-              effectiveStart: new Date(baseStart.getTime() - bufferBefore * 60000),
-              effectiveEnd: new Date(baseEnd.getTime() + bufferAfter * 60000),
+              effectiveStart,
+              effectiveEnd,
             });
           }
 
@@ -114,7 +118,7 @@ export class ReservationsService {
                 requiredQty: demand.quantity,
                 usableQty: usable,
                 reservedQty: reserved,
-                availableQty: usable - reserved, // raw temporal logic, might be negative
+                availableQty: Math.max(0, usable - reserved),
                 shortageQty: Math.max(0, demand.quantity - Math.max(0, usable - reserved)),
                 period: {
                   start: candidate.effectiveStart.toISOString(),
@@ -176,6 +180,9 @@ export class ReservationsService {
             SET "status" = 'CONFIRMED'::"BookingStatus", "updatedAt" = NOW()
             WHERE "id" = ${bookingId}
           `;
+
+          // Auto-prepare dispatch for the confirmed booking
+          await dispatchService.prepareDispatchInTx(tx, businessId, bookingId, userId);
 
           await auditService.recordAuditEvent(tx, {
             businessId,

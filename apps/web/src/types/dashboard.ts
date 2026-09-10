@@ -2,6 +2,10 @@ export interface DashboardDTO {
   user: {
     name: string;
   };
+  business?: {
+    name: string;
+    timezone?: string;
+  };
   today: {
     events: number;
     dispatches: number;
