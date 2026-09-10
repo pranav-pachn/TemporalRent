@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AuditAction, AuditEntityType } from '@temporalrent/shared/src/types';
+import { AuditAction, AuditEntityType } from '@prisma/client';
 
 export const listAuditEventsSchema = z.object({
   entityType: z.nativeEnum(AuditEntityType).optional(),
