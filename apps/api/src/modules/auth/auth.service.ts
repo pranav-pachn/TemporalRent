@@ -2,8 +2,9 @@ import { UserRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { createSession, deleteSession } from '../../lib/session';
 import { exchangeCodeForTokens, verifyGoogleIdToken } from '../../lib/google';
-import { WorkspaceSetupInput } from './auth.schemas';
+import { WorkspaceSetupInput, RegisterInput, LoginInput } from './auth.schemas';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
 export class AuthService {
   async generateOAuthState() {
@@ -74,6 +75,84 @@ export class AuthService {
     };
   }
 
+  async register(input: RegisterInput) {
+    const existingUser = await prisma.user.findFirst({
+      where: { email: input.email }
+    });
+
+    if (existingUser) {
+      throw new Error('USER_ALREADY_EXISTS');
+    }
+
+    let slug = input.businessName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!slug) slug = 'workspace';
+
+    let suffix = 1;
+    let candidateSlug = slug;
+    while (await prisma.business.findUnique({ where: { slug: candidateSlug } })) {
+      candidateSlug = `${slug}-${suffix}`;
+      suffix++;
+    }
+    slug = candidateSlug;
+
+    const passwordHash = await bcrypt.hash(input.password, 12);
+    const timezone = input.timezone ?? "UTC";
+
+    const result = await prisma.$transaction(async (tx) => {
+      const business = await tx.business.create({
+        data: {
+          name: input.businessName,
+          slug,
+          timezone,
+        },
+      });
+
+      const user = await tx.user.create({
+        data: {
+          email: input.email,
+          name: input.name,
+          passwordHash,
+          businessId: business.id,
+          role: UserRole.OWNER,
+        },
+      });
+
+      return { business, user };
+    });
+
+    const session = await createSession(result.user.id, result.business.id);
+
+    return {
+      user: result.user,
+      business: result.business,
+      session,
+    };
+  }
+
+  async login(input: LoginInput) {
+    const user = await prisma.user.findFirst({
+      where: { email: input.email },
+      include: { business: true }
+    });
+
+    if (!user || !user.passwordHash) {
+      throw new Error('INVALID_CREDENTIALS');
+    }
+
+    const isValid = await bcrypt.compare(input.password, user.passwordHash);
+    if (!isValid) {
+      throw new Error('INVALID_CREDENTIALS');
+    }
+
+    const session = await createSession(user.id, user.businessId);
+
+    return {
+      user,
+      business: user.business,
+      session,
+    };
+  }
+
   async setupWorkspace(userId: string, input: WorkspaceSetupInput) {
     let slug = input.businessName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     if (!slug) slug = 'workspace';
@@ -87,7 +166,6 @@ export class AuthService {
       throw new Error('USER_NOT_FOUND');
     }
 
-    // Check if slug exists
     const existingBusiness = await prisma.business.findUnique({
       where: { slug },
     });
@@ -98,7 +176,7 @@ export class AuthService {
           where: { id: existingBusiness.id },
           data: {
             name: input.businessName,
-            timezone: input.timezone,
+            timezone: input.timezone ?? 'UTC',
           },
         });
 
@@ -122,7 +200,6 @@ export class AuthService {
     }
 
     if (existingBusiness) {
-      // Slug taken by another business: generate a unique slug
       let suffix = 1;
       let candidateSlug = `${slug}-${suffix}`;
       while (await prisma.business.findUnique({ where: { slug: candidateSlug } })) {
@@ -137,7 +214,7 @@ export class AuthService {
         data: {
           name: input.businessName,
           slug,
-          timezone: input.timezone,
+          timezone: input.timezone ?? 'UTC',
         },
       });
 
@@ -150,7 +227,6 @@ export class AuthService {
         },
       });
 
-      // Update all user's sessions to include the businessId
       await tx.session.updateMany({
         where: { userId },
         data: { businessId: business.id },

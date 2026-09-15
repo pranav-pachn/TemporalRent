@@ -1,28 +1,37 @@
+'use client';
+
 import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { temporalDemo } from './data/temporal-demo';
 
 export function HeroSection() {
   return (
-    <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 px-6 overflow-hidden">
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+    <section className="relative pt-28 pb-16 md:pt-48 md:pb-32 px-4 sm:px-6 overflow-hidden">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
         {/* Text Content */}
-        <div className="flex flex-col gap-8 relative z-10">
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight leading-[1.1] text-text">
-            KNOW WHAT YOU CAN <br />
-            <span className="text-primary">SAFELY PROMISE.</span>
+        <div className="flex flex-col gap-6 sm:gap-8 relative z-10">
+          <div className="font-mono text-xs font-semibold tracking-widest text-text-muted uppercase">
+            Temporal Inventory Platform
+          </div>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.08] text-text">
+            Know what's <br />
+            available. <br />
+            Know what you <br />
+            <span className="text-primary">can promise.</span>
           </h1>
-          <p className="text-lg md:text-xl text-text-muted max-w-xl leading-relaxed">
-            Temporal inventory planning for event rental businesses. Know what's available, what's committed, and what you can safely book.
+          <p className="text-base sm:text-lg md:text-xl text-text-muted max-w-xl leading-relaxed">
+            Plan event inventory across bookings, operational buffers, and fulfillment — without double-booking the same physical stock.
           </p>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
             <Link 
-              href="/login" 
-              className="bg-primary text-white px-8 py-4 rounded-lg font-semibold hover:bg-primaryHover transition-colors text-lg"
+              href="/signup" 
+              className="bg-primary text-primary-foreground px-6 sm:px-8 py-3.5 sm:py-4 rounded-lg font-bold hover:bg-primaryHover transition-colors text-base sm:text-lg flex items-center justify-center gap-2 text-center shadow-lg"
             >
-              Get Started
+              Get started &rarr;
             </Link>
             <Link 
               href="#how-it-works" 
-              className="px-8 py-4 rounded-lg font-semibold border border-border hover:bg-surface transition-colors text-lg"
+              className="px-6 sm:px-8 py-3.5 sm:py-4 rounded-lg font-semibold border border-border hover:bg-surface transition-colors text-base sm:text-lg text-center"
             >
               See how it works
             </Link>
@@ -31,44 +40,77 @@ export function HeroSection() {
 
         {/* Animated CSS Mockup */}
         <div className="relative w-full max-w-md mx-auto lg:ml-auto z-10">
-          <div className="absolute inset-0 bg-primary/20 blur-[100px] rounded-full" />
-          <div className="relative bg-surface border border-border rounded-xl shadow-2xl overflow-hidden p-6 hover:border-primary/50 transition-colors duration-500 transform hover:scale-[1.02]">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
-              <h3 className="font-semibold text-lg">Booking Availability</h3>
-              <span className="text-sm px-2 py-1 bg-green-500/10 text-green-500 rounded-full flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                Available
-              </span>
+          <div className="absolute inset-0 bg-primary/10 blur-[100px] rounded-full" />
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="relative bg-surface border border-border rounded-xl shadow-2xl overflow-hidden p-4 sm:p-6"
+          >
+            <div className="mb-6 pb-6 border-b border-border space-y-6">
+              <h3 className="font-mono text-sm font-semibold tracking-widest text-text-muted uppercase">
+                {temporalDemo.scenario} &middot; {temporalDemo.bookingA.eventName.toUpperCase()}
+              </h3>
+              
+              <div className="space-y-6">
+                {/* Subtle Timeline */}
+                <div className="relative pt-2 pb-2">
+                  <div className="absolute top-3 left-0 right-0 h-[1px] bg-border" />
+                  <div className="absolute top-3 left-[30%] right-[30%] h-[1px] bg-status-operational" />
+                  <div className="flex justify-between relative z-10 font-mono text-[10px] text-text-muted">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-border" />
+                      4 PM
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-status-operational shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                      6 PM
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-status-operational shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                      11 PM
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-border" />
+                      11 AM
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="font-mono text-xs text-text-muted mb-1.5">{temporalDemo.bookingA.event.label.toUpperCase()}</div>
+                  <div className="text-sm font-medium tracking-wide">{temporalDemo.bookingA.event.display}</div>
+                </div>
+                
+                <div className="relative pl-4 border-l-2 border-status-operational">
+                  <div className="font-mono text-xs text-status-operational mb-1.5">{temporalDemo.bookingA.operational.label.toUpperCase()}</div>
+                  <div className="text-sm font-medium tracking-wide">{temporalDemo.bookingA.operational.display}</div>
+                  <div className="mt-3">
+                    <div className="font-mono text-xs text-status-operational border border-status-operational/30 bg-status-operational/10 px-2 py-1 rounded inline-block">
+                      BUFFER: {temporalDemo.bookingA.buffer.label}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div className="space-y-4">
               <div className="flex justify-between items-center group">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded bg-border flex items-center justify-center">🛋️</div>
-                  <span className="font-medium text-text-muted group-hover:text-text transition-colors">VIP Sofa</span>
-                </div>
-                <div className="text-right">
-                  <div className="font-mono">8 / 10</div>
-                </div>
+                <span className="font-mono text-sm font-medium text-text-muted group-hover:text-text transition-colors">{temporalDemo.inventory.primaryItem.name}</span>
+                <div className="font-mono text-sm">{temporalDemo.inventory.primaryItem.bookingACommitted} / {temporalDemo.inventory.primaryItem.totalCapacity}</div>
               </div>
               
               <div className="flex justify-between items-center group">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded bg-border flex items-center justify-center">🏺</div>
-                  <span className="font-medium text-text-muted group-hover:text-text transition-colors">Urli</span>
-                </div>
-                <div className="text-right">
-                  <div className="font-mono">4 / 6</div>
-                </div>
+                <span className="font-mono text-sm font-medium text-text-muted group-hover:text-text transition-colors">{temporalDemo.inventory.secondaryItem.name}</span>
+                <div className="font-mono text-sm">{temporalDemo.inventory.secondaryItem.bookingACommitted} / {temporalDemo.inventory.secondaryItem.totalCapacity}</div>
               </div>
             </div>
 
-            <div className="mt-8 pt-4 border-t border-border flex justify-between items-center text-sm text-text-muted">
-              <span>Nov 12</span>
-              <span className="text-border">→</span>
-              <span>Nov 13</span>
+            <div className="mt-8 pt-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-status-available animate-pulse" />
+              <span className="font-mono text-sm font-semibold text-status-available">AVAILABLE &middot; BUFFER COMMITTED</span>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>

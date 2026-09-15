@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { authService } from './auth.service';
 import { getGoogleAuthUrl } from '../../lib/google';
-import { workspaceSetupSchema } from './auth.schemas';
+import { workspaceSetupSchema, loginSchema, registerSchema } from './auth.schemas';
 import { prisma } from '../../lib/prisma';
 
 // CSRF State storage via cookies is more robust for dev server restarts than in-memory
@@ -168,6 +168,61 @@ export class AuthController {
     } catch (error) {
       console.error('Dev login error:', error);
       return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'Dev login failed' });
+    }
+  }
+
+  async login(req: Request, res: Response) {
+    try {
+      const parseResult = loginSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          code: 'VALIDATION_ERROR',
+          errors: parseResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const result = await authService.login(parseResult.data);
+      res.cookie('tr_session', result.session.token, COOKIE_OPTIONS);
+
+      // Don't send password hash
+      const { passwordHash, ...safeUser } = result.user;
+      return res.status(200).json({
+        user: safeUser,
+        business: result.business,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'INVALID_CREDENTIALS') {
+        return res.status(401).json({ code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' });
+      }
+      console.error('Login error:', error);
+      return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'Login failed' });
+    }
+  }
+
+  async register(req: Request, res: Response) {
+    try {
+      const parseResult = registerSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          code: 'VALIDATION_ERROR',
+          errors: parseResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const result = await authService.register(parseResult.data);
+      res.cookie('tr_session', result.session.token, COOKIE_OPTIONS);
+
+      const { passwordHash, ...safeUser } = result.user;
+      return res.status(201).json({
+        user: safeUser,
+        business: result.business,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'USER_ALREADY_EXISTS') {
+        return res.status(409).json({ code: 'USER_ALREADY_EXISTS', message: 'An account with this email already exists.' });
+      }
+      console.error('Registration error:', error);
+      return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'Registration failed' });
     }
   }
 

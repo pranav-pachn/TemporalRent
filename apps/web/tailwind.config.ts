@@ -10,27 +10,33 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: '#0d0d10',
-        surface: '#141418',
-        surfaceHover: '#1c1c22',
-        border: '#27272a',
+        background: '#0c0c0f',
+        surface: '#111114',
+        surfaceHover: '#18181c',
+        border: '#22222a',
         primary: {
           DEFAULT: '#f59e0b',
-          foreground: '#0d0d10',
+          foreground: '#0c0c0f',
         },
         primaryHover: '#d97706',
         text: {
-          DEFAULT: '#f4f4f5',
-          muted: '#a1a1aa'
+          DEFAULT: '#f0f0f2',
+          muted: '#8a8a99'
         },
         urgency: {
           critical: '#ef4444',
           attention: '#f59e0b',
           normal: '#3f3f46'
+        },
+        status: {
+          available: '#22c55e',
+          conflict: '#ef4444',
+          operational: '#f59e0b'
         }
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['var(--font-manrope)', 'sans-serif'],
+        mono: ['var(--font-plex-mono)', 'monospace'],
       }
     },
   },

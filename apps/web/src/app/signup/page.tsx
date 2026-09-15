@@ -1,48 +1,65 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter();
   const { refetchSession } = useAuth();
   
+  const [businessName, setBusinessName] = useState('');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [timezone, setTimezone] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  useEffect(() => {
+    try {
+      setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    } catch {
+      setTimezone('UTC');
+    }
+  }, []);
+
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
       setError(null);
-      await apiClient.post('/api/v1/auth/login', { email, password });
+      await apiClient.post('/api/v1/auth/register', { 
+        businessName,
+        name,
+        email, 
+        password,
+        timezone 
+      });
       await refetchSession();
       window.location.href = '/dashboard';
     } catch (e: any) {
-      console.error('Login failed', e);
-      setError(e.message || 'Invalid email or password');
+      console.error('Registration failed', e);
+      setError(e.message || 'Failed to create workspace. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 py-12">
       <div className="w-full max-w-md bg-surface border border-border rounded-xl shadow-xl p-8 text-center space-y-8">
         <div>
           <Link href="/" className="text-3xl font-bold tracking-tight text-text inline-block mb-2 hover:text-primary transition-colors">
             TemporalRent
           </Link>
           <div className="font-mono text-xs font-semibold tracking-widest text-text-muted uppercase mt-2">
-            Welcome back
+            Create Your Workspace
           </div>
-          <p className="text-text-muted text-sm mt-2">Manage inventory across every event.</p>
+          <p className="text-text-muted text-sm mt-2">Set up your business and start managing inventory.</p>
         </div>
 
         {error && (
@@ -71,9 +88,33 @@ export default function LoginPage() {
             <div className="border-t border-border w-full"></div>
           </div>
 
-          <form onSubmit={handleEmailLogin} className="space-y-4 text-left">
+          <form onSubmit={handleRegister} className="space-y-4 text-left">
             <div className="space-y-1">
-              <label className="block text-sm font-semibold text-text-muted">Email</label>
+              <label className="block text-sm font-semibold text-text-muted">Business Name</label>
+              <input
+                type="text"
+                required
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder="e.g. Acme Event Rentals"
+                className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-text"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-sm font-semibold text-text-muted">Your Name</label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Rahul Sharma"
+                className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-text"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-sm font-semibold text-text-muted">Work Email</label>
               <input
                 type="email"
                 required
@@ -97,17 +138,17 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center justify-center gap-2 w-full bg-primary hover:bg-primaryHover text-primary-foreground font-bold px-4 py-3 rounded-lg transition-colors disabled:opacity-50 mt-2"
+              className="flex items-center justify-center gap-2 w-full bg-primary hover:bg-primaryHover text-primary-foreground font-bold px-4 py-3 rounded-lg transition-colors disabled:opacity-50 mt-4"
             >
               {loading && <Loader2 className="w-5 h-5 animate-spin" />}
-              <span>Sign in</span>
+              <span>Create Workspace</span>
             </button>
           </form>
         </div>
 
         <div className="pt-4 border-t border-border">
-          <Link href="/signup" className="text-sm font-medium text-text hover:text-primary transition-colors">
-            New to TemporalRent? Create workspace
+          <Link href="/login" className="text-sm font-medium text-text hover:text-primary transition-colors">
+            Already have an account? Sign in
           </Link>
         </div>
       </div>

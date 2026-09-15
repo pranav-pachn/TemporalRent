@@ -119,7 +119,7 @@ export default function DispatchPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -146,7 +146,7 @@ export default function DispatchPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-white/5 space-x-2">
+      <div className="flex border-b border-white/5 space-x-2 overflow-x-auto whitespace-nowrap pb-0.5">
         {(['ALL', 'READY', 'PICKING', 'DISPATCHED'] as const).map((tab) => {
           const count = tab === 'ALL' ? dispatches.length : countByStatus(tab as DispatchStatus);
           const isActive = activeTab === tab;
@@ -345,64 +345,66 @@ export default function DispatchPage() {
               )}
 
               <div className="bg-neutral-950 border border-white/5 rounded-xl overflow-hidden">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-neutral-900 border-b border-white/5 text-neutral-400 text-xs uppercase font-semibold">
-                    <tr>
-                      <th className="px-4 py-3">Item</th>
-                      <th className="px-4 py-3 text-center">Expected</th>
-                      <th className="px-4 py-3 text-center">Dispatched</th>
-                      <th className="px-4 py-3 text-center">Remaining</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5 text-xs">
-                    {activeDispatch.lines.map((line) => {
-                      const dispatched = dispatchedQuantities[line.id] ?? line.dispatchedQty;
-                      const remaining = Math.max(0, line.expectedQty - dispatched);
-                      const isPartial = remaining > 0 && activeDispatch.status !== 'READY';
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm min-w-[340px]">
+                    <thead className="bg-neutral-900 border-b border-white/5 text-neutral-400 text-xs uppercase font-semibold">
+                      <tr>
+                        <th className="px-4 py-3">Item</th>
+                        <th className="px-4 py-3 text-center">Expected</th>
+                        <th className="px-4 py-3 text-center">Dispatched</th>
+                        <th className="px-4 py-3 text-center">Remaining</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 text-xs">
+                      {activeDispatch.lines.map((line) => {
+                        const dispatched = dispatchedQuantities[line.id] ?? line.dispatchedQty;
+                        const remaining = Math.max(0, line.expectedQty - dispatched);
+                        const isPartial = remaining > 0 && activeDispatch.status !== 'READY';
 
-                      return (
-                        <tr key={line.id} className="hover:bg-white/5">
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-white">{line.inventoryItem.name}</div>
-                            {line.inventoryItem.sku && (
-                              <div className="text-neutral-500 text-xs mt-0.5">SKU: {line.inventoryItem.sku}</div>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center font-medium text-neutral-300">
-                            {line.expectedQty}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {activeDispatch.status === 'PICKING' ? (
-                              <input
-                                type="number"
-                                min={0}
-                                max={line.expectedQty}
-                                value={dispatched}
-                                onChange={(e) => {
-                                  const val = Math.max(0, Math.min(line.expectedQty, parseInt(e.target.value) || 0));
-                                  setDispatchedQuantities((prev) => ({
-                                    ...prev,
-                                    [line.id]: val,
-                                  }));
-                                }}
-                                className="w-16 px-2 py-1 bg-neutral-900 border border-white/10 rounded text-center text-white font-medium focus:outline-none focus:border-blue-500"
-                              />
-                            ) : (
-                              <span className="font-medium text-white">{line.dispatchedQty}</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`px-2 py-0.5 rounded font-semibold ${
-                              isPartial ? 'bg-amber-500/20 text-amber-400' : 'text-neutral-500'
-                            }`}>
-                              {remaining}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                        return (
+                          <tr key={line.id} className="hover:bg-white/5">
+                            <td className="px-4 py-3">
+                              <div className="font-medium text-white">{line.inventoryItem.name}</div>
+                              {line.inventoryItem.sku && (
+                                <div className="text-neutral-500 text-xs mt-0.5">SKU: {line.inventoryItem.sku}</div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center font-medium text-neutral-300">
+                              {line.expectedQty}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {activeDispatch.status === 'PICKING' ? (
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={line.expectedQty}
+                                  value={dispatched}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, Math.min(line.expectedQty, parseInt(e.target.value) || 0));
+                                    setDispatchedQuantities((prev) => ({
+                                      ...prev,
+                                      [line.id]: val,
+                                    }));
+                                  }}
+                                  className="w-16 px-2 py-1 bg-neutral-900 border border-white/10 rounded text-center text-white font-medium focus:outline-none focus:border-blue-500"
+                                />
+                              ) : (
+                                <span className="font-medium text-white">{line.dispatchedQty}</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`px-2 py-0.5 rounded font-semibold ${
+                                isPartial ? 'bg-amber-500/20 text-amber-400' : 'text-neutral-500'
+                              }`}>
+                                {remaining}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
 

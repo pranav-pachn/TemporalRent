@@ -67,12 +67,12 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
+      <div className="flex justify-between items-center gap-4">
         <h1 className="text-2xl font-bold text-white tracking-tight">Bookings</h1>
         <Link 
           href="/bookings/new" 
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg flex items-center transition-colors"
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg flex items-center transition-colors shrink-0"
         >
           <Plus className="w-4 h-4 mr-2" />
           New Booking
@@ -87,7 +87,8 @@ export default function BookingsPage() {
         </div>
       ) : (
         <div className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden">
-          <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap sm:whitespace-normal">
             <thead className="bg-neutral-950 border-b border-white/5 text-neutral-400 uppercase tracking-wider text-xs font-semibold">
               <tr>
                 <th className="px-6 py-4">Event & ID</th>
@@ -137,6 +138,7 @@ export default function BookingsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
