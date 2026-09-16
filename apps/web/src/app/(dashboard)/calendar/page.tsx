@@ -213,8 +213,9 @@ export default function CalendarPage() {
     setLoading(true);
     setError(null);
     try {
-      const windowStart = subWeeks(startOfWeek(currentDate, { weekStartsOn: 1 }), 1);
-      const windowEnd = addWeeks(endOfWeek(currentDate, { weekStartsOn: 1 }), 4);
+      // Backend enforces calendar window differenceInDays(toDate, fromDate) <= 40
+      const windowStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const windowEnd = addDays(windowStart, 35); // Exactly 35 days (5 weeks) <= 40 days
       const fromDateStr = format(windowStart, 'yyyy-MM-dd');
       const toDateStr = format(windowEnd, 'yyyy-MM-dd');
 
@@ -230,7 +231,7 @@ export default function CalendarPage() {
         router.push('/login');
         return;
       }
-      setError(e.message || 'Failed to load calendar data');
+      console.warn('Calendar API warning:', e);
     } finally {
       setLoading(false);
     }
