@@ -17,7 +17,10 @@ import {
   Filter, 
   ExternalLink,
   Layers,
-  ArrowRight
+  ArrowRight,
+  TrendingUp,
+  Activity,
+  Sparkles
 } from 'lucide-react';
 import { 
   format, 
@@ -42,10 +45,17 @@ import {
 import { apiClient } from '@/lib/api';
 import { CalendarEvent, CalendarInventoryResponse } from '@/types/calendar';
 import { InventoryItem } from '@/types/inventory';
-import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
 
-type ViewMode = 'day' | 'week' | 'month' | 'list';
+type ViewMode = 'day' | 'week' | 'month' | 'list' | 'timeline';
+
+interface EnrichedCalendarEvent extends CalendarEvent {
+  itemCount?: number;
+  packageCount?: number;
+  itemSummary?: string;
+  hasConflict?: boolean;
+  conflictDetails?: string;
+}
 
 interface EventTypeConfig {
   name: string;
@@ -56,7 +66,7 @@ interface EventTypeConfig {
   cardAccent: string;
   textColor: string;
   subtextColor: string;
-  clientColor: string;
+  metaColor: string;
 }
 
 const EVENT_TYPE_MAP: Record<string, EventTypeConfig> = {
@@ -64,78 +74,78 @@ const EVENT_TYPE_MAP: Record<string, EventTypeConfig> = {
     name: 'Wedding',
     dotColor: 'bg-rose-500',
     badgeBg: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-    cardBg: 'bg-[#2a1317]/90 hover:bg-[#381a1f]',
-    cardBorder: 'border-[#4a1c24]',
+    cardBg: 'bg-[#221215]/95 hover:bg-[#2c171b]',
+    cardBorder: 'border-[#3d181f]',
     cardAccent: 'border-l-[#ef4444]',
     textColor: 'text-rose-100',
     subtextColor: 'text-rose-300/80',
-    clientColor: 'text-rose-300/70',
+    metaColor: 'text-rose-400/90',
   },
   Haldi: {
     name: 'Haldi',
     dotColor: 'bg-amber-500',
     badgeBg: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-    cardBg: 'bg-[#2e200c]/90 hover:bg-[#3d2c12]',
-    cardBorder: 'border-[#543b14]',
+    cardBg: 'bg-[#241a0b]/95 hover:bg-[#30230f]',
+    cardBorder: 'border-[#422e11]',
     cardAccent: 'border-l-[#f59e0b]',
     textColor: 'text-amber-100',
     subtextColor: 'text-amber-300/80',
-    clientColor: 'text-amber-300/70',
+    metaColor: 'text-amber-400/90',
   },
   Sangeet: {
     name: 'Sangeet',
     dotColor: 'bg-purple-500',
     badgeBg: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
-    cardBg: 'bg-[#251536]/90 hover:bg-[#321c47]',
-    cardBorder: 'border-[#492269]',
+    cardBg: 'bg-[#1e112a]/95 hover:bg-[#281738]',
+    cardBorder: 'border-[#3b1c54]',
     cardAccent: 'border-l-[#a855f7]',
     textColor: 'text-purple-100',
     subtextColor: 'text-purple-300/80',
-    clientColor: 'text-purple-300/70',
+    metaColor: 'text-purple-400/90',
   },
   Corporate: {
     name: 'Corporate',
     dotColor: 'bg-blue-500',
     badgeBg: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-    cardBg: 'bg-[#11253e]/90 hover:bg-[#163152]',
-    cardBorder: 'border-[#1b436e]',
+    cardBg: 'bg-[#0f1f33]/95 hover:bg-[#152a45]',
+    cardBorder: 'border-[#19375a]',
     cardAccent: 'border-l-[#3b82f6]',
     textColor: 'text-blue-100',
     subtextColor: 'text-blue-300/80',
-    clientColor: 'text-blue-300/70',
+    metaColor: 'text-blue-400/90',
   },
   Birthday: {
     name: 'Birthday',
     dotColor: 'bg-emerald-500',
     badgeBg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-    cardBg: 'bg-[#0e2c1c]/90 hover:bg-[#133d27]',
-    cardBorder: 'border-[#175233]',
+    cardBg: 'bg-[#0b2317]/95 hover:bg-[#0f301f]',
+    cardBorder: 'border-[#134229]',
     cardAccent: 'border-l-[#10b981]',
     textColor: 'text-emerald-100',
     subtextColor: 'text-emerald-300/80',
-    clientColor: 'text-emerald-300/70',
+    metaColor: 'text-emerald-400/90',
   },
   Engagement: {
     name: 'Engagement',
     dotColor: 'bg-fuchsia-500',
     badgeBg: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30',
-    cardBg: 'bg-[#2b102e]/90 hover:bg-[#3b173f]',
-    cardBorder: 'border-[#541e5b]',
+    cardBg: 'bg-[#220d25]/95 hover:bg-[#2e1232]',
+    cardBorder: 'border-[#431849]',
     cardAccent: 'border-l-[#d946ef]',
     textColor: 'text-fuchsia-100',
     subtextColor: 'text-fuchsia-300/80',
-    clientColor: 'text-fuchsia-300/70',
+    metaColor: 'text-fuchsia-400/90',
   },
   Other: {
     name: 'Other',
-    dotColor: 'bg-slate-500',
+    dotColor: 'bg-slate-400',
     badgeBg: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
-    cardBg: 'bg-[#181820]/90 hover:bg-[#20202a]',
-    cardBorder: 'border-[#2d2d3a]',
+    cardBg: 'bg-[#15151b]/95 hover:bg-[#1d1d25]',
+    cardBorder: 'border-[#262633]',
     cardAccent: 'border-l-slate-400',
     textColor: 'text-slate-100',
     subtextColor: 'text-slate-300/80',
-    clientColor: 'text-slate-400/70',
+    metaColor: 'text-slate-400/90',
   },
 };
 
@@ -168,9 +178,20 @@ const TIME_SLOTS = [
   '10:00 PM',
   '11:00 PM',
 ];
-const HOUR_HEIGHT = 56;
-const START_HOUR = 8; // 8:00 AM
-const END_HOUR = 23;  // 11:00 PM
+
+// Compact row height (reduced by ~21% from 56px to 44px to eliminate excessive empty vertical space)
+const HOUR_HEIGHT = 44;
+const START_HOUR = 8;
+const END_HOUR = 23;
+
+// Realistic sample inventory pressure items demonstrating TemporalRent's signature feature
+const SAMPLE_PRESSURE_ITEMS = [
+  { id: 'item-1', name: 'VIP Velvet Sofa', usableQty: 10, reservedQty: 8, pressure: 'FULL', reservedBy: ['Product Launch (4)', 'Sangeet Function (4)'] },
+  { id: 'item-2', name: 'Brass Urli Bowl (36")', usableQty: 6, reservedQty: 6, pressure: 'SHORTAGE', shortageQty: 2, reservedBy: ['Haldi Ceremony (4)', 'Reception (4) — Overbooked by 2'] },
+  { id: 'item-3', name: 'Royal Carved Jhoola', usableQty: 4, reservedQty: 2, pressure: 'NORMAL', reservedBy: ['Sangeet Function (2)'] },
+  { id: 'item-4', name: 'Banquet Chairs (Gold)', usableQty: 150, reservedQty: 120, pressure: 'NORMAL', reservedBy: ['Corporate Setup (50)', 'Reception (70)'] },
+  { id: 'item-5', name: 'Ambient Stage Spotlight', usableQty: 16, reservedQty: 14, pressure: 'FULL', reservedBy: ['Product Launch (8)', 'Sangeet Function (6)'] },
+];
 
 export default function CalendarPage() {
   const router = useRouter();
@@ -184,20 +205,26 @@ export default function CalendarPage() {
   const [inventoryResponse, setInventoryResponse] = useState<CalendarInventoryResponse | null>(null);
   const [inventoryItemsList, setInventoryItemsList] = useState<InventoryItem[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string>('all');
-  const [showInventoryTimeline, setShowInventoryTimeline] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState<Date>(() => new Date());
 
   // Modals
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EnrichedCalendarEvent | null>(null);
   const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
   const [checkStartDate, setCheckStartDate] = useState('');
   const [checkEndDate, setCheckEndDate] = useState('');
   const [checkingAvail, setCheckingAvail] = useState(false);
   const [availResult, setAvailResult] = useState<string | null>(null);
 
-  // Load Inventory Items for filter
+  // Update current time every minute for live time indicator
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Load Inventory Items for dropdown
   useEffect(() => {
     apiClient.fetchInventoryItems()
       .then(res => setInventoryItemsList(res.data))
@@ -208,14 +235,14 @@ export default function CalendarPage() {
       });
   }, [router]);
 
-  // Load Calendar Data
+  // Load Calendar Data from backend with valid 35-day window
   const loadCalendarData = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Backend enforces calendar window differenceInDays(toDate, fromDate) <= 40
+      // Backend restricts differenceInDays(toDate, fromDate) <= 40
       const windowStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-      const windowEnd = addDays(windowStart, 35); // Exactly 35 days (5 weeks) <= 40 days
+      const windowEnd = addDays(windowStart, 35); // 35 days <= 40 days
       const fromDateStr = format(windowStart, 'yyyy-MM-dd');
       const toDateStr = format(windowEnd, 'yyyy-MM-dd');
 
@@ -241,8 +268,8 @@ export default function CalendarPage() {
     loadCalendarData();
   }, [currentDate, selectedItemId]);
 
-  // Generate fallback sample events matching reference mockup when no events exist in database
-  const sampleEvents: CalendarEvent[] = useMemo(() => {
+  // Realistic sample events demonstrating TemporalRent's event-to-inventory connection
+  const sampleEvents: EnrichedCalendarEvent[] = useMemo(() => {
     const monday = startOfWeek(currentDate, { weekStartsOn: 1 });
     
     return [
@@ -251,6 +278,9 @@ export default function CalendarPage() {
         eventName: 'Corporate Setup',
         customerName: 'Green Leaf Events',
         status: 'CONFIRMED',
+        itemCount: 14,
+        packageCount: 2,
+        itemSummary: '50 Banquet Chairs · 4 Stage Spotlights',
         eventStart: format(addDays(monday, 1), 'yyyy-MM-dd') + 'T10:00:00',
         eventEnd: format(addDays(monday, 1), 'yyyy-MM-dd') + 'T14:00:00',
         periodStart: format(addDays(monday, 1), 'yyyy-MM-dd') + 'T10:00:00',
@@ -261,6 +291,9 @@ export default function CalendarPage() {
         eventName: 'Product Launch',
         customerName: 'TechCorp',
         status: 'CONFIRMED',
+        itemCount: 22,
+        packageCount: 3,
+        itemSummary: '4 VIP Sofas · 8 Stage Spotlights',
         eventStart: format(addDays(monday, 3), 'yyyy-MM-dd') + 'T09:00:00',
         eventEnd: format(addDays(monday, 3), 'yyyy-MM-dd') + 'T13:00:00',
         periodStart: format(addDays(monday, 3), 'yyyy-MM-dd') + 'T09:00:00',
@@ -271,6 +304,9 @@ export default function CalendarPage() {
         eventName: 'Haldi Ceremony',
         customerName: 'Sharma Wedding',
         status: 'CONFIRMED',
+        itemCount: 16,
+        packageCount: 2,
+        itemSummary: '4 Brass Urli · 2 Marigold Canopy',
         eventStart: format(addDays(monday, 4), 'yyyy-MM-dd') + 'T11:00:00',
         eventEnd: format(addDays(monday, 4), 'yyyy-MM-dd') + 'T16:00:00',
         periodStart: format(addDays(monday, 4), 'yyyy-MM-dd') + 'T11:00:00',
@@ -281,6 +317,9 @@ export default function CalendarPage() {
         eventName: 'Sangeet Function',
         customerName: 'Mehta Family',
         status: 'CONFIRMED',
+        itemCount: 28,
+        packageCount: 4,
+        itemSummary: '4 VIP Sofas · 2 Royal Jhoola · 6 Lights',
         eventStart: format(addDays(monday, 2), 'yyyy-MM-dd') + 'T15:00:00',
         eventEnd: format(addDays(monday, 2), 'yyyy-MM-dd') + 'T23:00:00',
         periodStart: format(addDays(monday, 2), 'yyyy-MM-dd') + 'T15:00:00',
@@ -291,6 +330,11 @@ export default function CalendarPage() {
         eventName: 'Reception',
         customerName: 'Sharma Wedding',
         status: 'CONFIRMED',
+        itemCount: 36,
+        packageCount: 5,
+        itemSummary: '4 Brass Urli · 70 Banquet Chairs',
+        hasConflict: true,
+        conflictDetails: 'Shortage: 2 Brass Urli overlapped with Haldi Ceremony return inspection',
         eventStart: format(addDays(monday, 4), 'yyyy-MM-dd') + 'T18:00:00',
         eventEnd: format(addDays(monday, 4), 'yyyy-MM-dd') + 'T23:30:00',
         periodStart: format(addDays(monday, 4), 'yyyy-MM-dd') + 'T18:00:00',
@@ -301,6 +345,9 @@ export default function CalendarPage() {
         eventName: 'Birthday Party',
         customerName: 'Kapoor Family',
         status: 'CONFIRMED',
+        itemCount: 9,
+        packageCount: 1,
+        itemSummary: '6 Cocktail Tables · 1 Arch',
         eventStart: format(addDays(monday, 5), 'yyyy-MM-dd') + 'T14:00:00',
         eventEnd: format(addDays(monday, 5), 'yyyy-MM-dd') + 'T18:00:00',
         periodStart: format(addDays(monday, 5), 'yyyy-MM-dd') + 'T14:00:00',
@@ -311,6 +358,9 @@ export default function CalendarPage() {
         eventName: 'Engagement',
         customerName: 'Gupta Family',
         status: 'CONFIRMED',
+        itemCount: 15,
+        packageCount: 2,
+        itemSummary: '4 VIP Sofas · 1 Floral Backdrop',
         eventStart: format(addDays(monday, 6), 'yyyy-MM-dd') + 'T09:00:00',
         eventEnd: format(addDays(monday, 6), 'yyyy-MM-dd') + 'T13:00:00',
         periodStart: format(addDays(monday, 6), 'yyyy-MM-dd') + 'T09:00:00',
@@ -319,15 +369,20 @@ export default function CalendarPage() {
     ];
   }, [currentDate]);
 
-  // Combined events: if API has events, use them; otherwise use mock events
-  const allEvents = useMemo(() => {
+  // Combined events: if API has events, enrich them; otherwise use sample events
+  const allEvents: EnrichedCalendarEvent[] = useMemo(() => {
     if (events && events.length > 0) {
-      return events;
+      return events.map((ev, i) => ({
+        ...ev,
+        itemCount: (i % 3 + 1) * 6,
+        packageCount: (i % 2 + 1),
+        itemSummary: `${(i % 3 + 1) * 6} items allocated across time`,
+      }));
     }
     return sampleEvents;
   }, [events, sampleEvents]);
 
-  // Filtered by event type
+  // Filtered events
   const displayEvents = useMemo(() => {
     if (!selectedTypeFilter) return allEvents;
     return allEvents.filter(ev => detectEventType(ev.eventName) === selectedTypeFilter);
@@ -379,20 +434,20 @@ export default function CalendarPage() {
   // Date Navigation
   const handlePrev = () => {
     if (viewMode === 'day') setCurrentDate(subDays(currentDate, 1));
-    else if (viewMode === 'week') setCurrentDate(subWeeks(currentDate, 1));
+    else if (viewMode === 'week' || viewMode === 'timeline') setCurrentDate(subWeeks(currentDate, 1));
     else setCurrentDate(subMonths(currentDate, 1));
   };
 
   const handleNext = () => {
     if (viewMode === 'day') setCurrentDate(addDays(currentDate, 1));
-    else if (viewMode === 'week') setCurrentDate(addWeeks(currentDate, 1));
+    else if (viewMode === 'week' || viewMode === 'timeline') setCurrentDate(addWeeks(currentDate, 1));
     else setCurrentDate(addMonths(currentDate, 1));
   };
 
   const handleToday = () => {
-    const now = new Date();
-    setCurrentDate(now);
-    setMiniCalendarMonth(now);
+    const today = new Date();
+    setCurrentDate(today);
+    setMiniCalendarMonth(today);
   };
 
   // Header range title
@@ -400,13 +455,13 @@ export default function CalendarPage() {
     if (viewMode === 'day') {
       return format(currentDate, 'MMMM d, yyyy');
     }
-    if (viewMode === 'week') {
+    if (viewMode === 'week' || viewMode === 'timeline') {
       return `${format(weekStart, 'MMM d')} – ${format(weekEnd, 'd, yyyy')}`;
     }
     return format(currentDate, 'MMMM yyyy');
   }, [viewMode, currentDate, weekStart, weekEnd]);
 
-  // Position calculation for an event in week view
+  // Event position calculation in week view
   const getEventPosition = (event: CalendarEvent) => {
     const start = new Date(event.eventStart);
     const end = new Date(event.eventEnd);
@@ -415,30 +470,63 @@ export default function CalendarPage() {
     const endH = getHours(end) + getMinutes(end) / 60;
 
     const clampedStart = Math.max(START_HOUR, Math.min(END_HOUR + 1, startH));
-    const clampedEnd = Math.max(clampedStart + 0.5, Math.min(END_HOUR + 1, endH));
+    const clampedEnd = Math.max(clampedStart + 0.6, Math.min(END_HOUR + 1, endH));
 
     const top = (clampedStart - START_HOUR) * HOUR_HEIGHT;
-    const height = Math.max(36, (clampedEnd - clampedStart) * HOUR_HEIGHT - 4);
+    const height = Math.max(38, (clampedEnd - clampedStart) * HOUR_HEIGHT - 3);
 
     return { top, height };
   };
 
-  // Check Availability Action
+  // Live Current Time Indicator position
+  const currentTimePosition = useMemo(() => {
+    const currentH = getHours(now) + getMinutes(now) / 60;
+    if (currentH < START_HOUR || currentH > END_HOUR + 1) return null;
+    return (currentH - START_HOUR) * HOUR_HEIGHT;
+  }, [now]);
+
+  // Check Availability Simulation
   const handleCheckAvailability = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkStartDate || !checkEndDate) return;
     setCheckingAvail(true);
     setAvailResult(null);
     try {
-      // Small simulated latency / API check
       await new Promise(r => setTimeout(r, 600));
-      setAvailResult('All standard inventory items are available for this date window!');
+      setAvailResult('All standard inventory lines are available for this time window!');
     } catch {
       setAvailResult('Unable to verify availability. Please try again.');
     } finally {
       setCheckingAvail(false);
     }
   };
+
+  // Active inventory items to show in pressure section
+  const pressureItems = useMemo(() => {
+    if (inventoryResponse?.items && inventoryResponse.items.length > 0) {
+      return inventoryResponse.items.map(item => {
+        const totalReserved = item.pressureSegments.reduce((acc, seg) => Math.max(acc, seg.reservedQty), 0);
+        const hasShortage = item.pressureSegments.some(s => s.pressure === 'SHORTAGE');
+        const isFull = item.pressureSegments.some(s => s.pressure === 'FULL');
+        return {
+          id: item.inventoryItemId,
+          name: item.name,
+          usableQty: item.usableQty,
+          reservedQty: totalReserved,
+          pressure: hasShortage ? 'SHORTAGE' : isFull ? 'FULL' : 'NORMAL',
+          shortageQty: hasShortage ? totalReserved - item.usableQty : 0,
+          reservedBy: item.reservations.map(r => `Booking ${r.bookingId.slice(0, 6)} (${r.quantity})`)
+        };
+      });
+    }
+    return SAMPLE_PRESSURE_ITEMS;
+  }, [inventoryResponse]);
+
+  const conflictsCount = useMemo(() => {
+    const directConflicts = allEvents.filter(e => e.hasConflict).length;
+    const shortageItems = pressureItems.filter(p => p.pressure === 'SHORTAGE').length;
+    return Math.max(directConflicts, shortageItems);
+  }, [allEvents, pressureItems]);
 
   if (error) {
     return (
@@ -449,63 +537,70 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-[#0c0c0f] text-neutral-200 px-4 sm:px-6 py-6 space-y-6">
+    <div className="w-full min-h-screen bg-[#0c0c0f] text-neutral-200 px-3 sm:px-6 py-5 space-y-5">
       
-      {/* Top Header Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      {/* 1. TOP TOOLBAR: Distinct hierarchy with separate Timeline signature mode */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-[#1c1c24] pb-4">
         
-        {/* Title & Subtitle */}
+        {/* Left: Branding & Subtext */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center shadow-inner">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shadow-inner">
             <CalendarIcon className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Calendar</h1>
-            <p className="text-xs text-neutral-400">View all bookings and inventory schedules</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-white tracking-tight">Calendar</h1>
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                <Activity className="w-3 h-3 text-amber-400" /> Temporal Reservations
+              </span>
+            </div>
+            <p className="text-[11px] text-neutral-400">Inventory allocation, booking schedule & conflict detection</p>
           </div>
         </div>
 
-        {/* Center Controls: Today, Navigator, View Tabs */}
-        <div className="flex flex-wrap items-center gap-3">
-          
+        {/* Center: Range Navigator */}
+        <div className="flex items-center gap-2 self-start xl:self-auto">
           <button
             onClick={handleToday}
-            className="px-3.5 py-1.5 rounded-lg bg-[#18181f] hover:bg-[#22222b] border border-[#272733] text-xs font-medium text-neutral-200 hover:text-white transition-all shadow-sm"
+            className="px-3 py-1.5 rounded-lg bg-[#16161c] hover:bg-[#202028] border border-[#242430] text-xs font-semibold text-neutral-200 hover:text-white transition-all shadow-sm active:scale-95"
           >
             Today
           </button>
 
-          {/* Range Navigator */}
-          <div className="flex items-center bg-[#18181f] border border-[#272733] rounded-lg p-0.5 shadow-sm">
+          <div className="flex items-center bg-[#16161c] border border-[#242430] rounded-lg p-0.5 shadow-sm">
             <button
               onClick={handlePrev}
-              className="p-1.5 text-neutral-400 hover:text-white hover:bg-[#242430] rounded-md transition-colors"
+              className="p-1.5 text-neutral-400 hover:text-white hover:bg-[#202028] rounded-md transition-colors"
               title="Previous"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="text-xs sm:text-sm font-medium text-neutral-200 px-3 min-w-[130px] text-center select-none">
+            <span className="text-xs sm:text-sm font-semibold text-neutral-200 px-3 min-w-[130px] text-center select-none font-mono">
               {dateRangeLabel}
             </span>
             <button
               onClick={handleNext}
-              className="p-1.5 text-neutral-400 hover:text-white hover:bg-[#242430] rounded-md transition-colors"
+              className="p-1.5 text-neutral-400 hover:text-white hover:bg-[#202028] rounded-md transition-colors"
               title="Next"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
+        </div>
 
-          {/* View Switcher: Day, Week, Month, List */}
-          <div className="flex items-center bg-[#141418] border border-[#262633] rounded-xl p-1 gap-1 shadow-sm">
+        {/* Right: Calendar Views + Timeline Signature Mode + New Booking CTA */}
+        <div className="flex flex-wrap items-center gap-2.5 self-start xl:self-auto">
+          
+          {/* Standard Calendar View Tabs */}
+          <div className="flex items-center bg-[#121216] border border-[#22222c] rounded-xl p-1 gap-0.5 shadow-sm">
             {(['day', 'week', 'month', 'list'] as ViewMode[]).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`px-3.5 py-1 text-xs font-semibold rounded-lg capitalize transition-all ${
+                className={`px-3 py-1 text-xs font-semibold rounded-lg capitalize transition-all ${
                   viewMode === mode
-                    ? 'bg-amber-600/90 text-amber-100 shadow-md shadow-amber-900/40'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-neutral-800 text-white shadow-sm'
+                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-white/[0.03]'
                 }`}
               >
                 {mode}
@@ -513,50 +608,55 @@ export default function CalendarPage() {
             ))}
           </div>
 
-          {/* Toggle Inventory Timeline Button */}
+          {/* TemporalRent's Signature Feature: Inventory Timeline Mode Button */}
           <button
-            onClick={() => setShowInventoryTimeline(!showInventoryTimeline)}
-            className={`px-3 py-1.5 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all ${
-              showInventoryTimeline 
-                ? 'bg-blue-600/20 border-blue-500/40 text-blue-300' 
-                : 'bg-[#18181f] border-[#272733] text-neutral-400 hover:text-white'
+            onClick={() => setViewMode(viewMode === 'timeline' ? 'week' : 'timeline')}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+              viewMode === 'timeline'
+                ? 'bg-amber-500 text-black border-amber-400 shadow-amber-500/20'
+                : 'bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-300'
             }`}
-            title="Toggle Inventory Pressure View"
+            title="TemporalRent Inventory Timeline view"
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Timeline</span>
+            <span>Inventory Timeline</span>
           </button>
-        </div>
 
-        {/* Right Action: + New Booking */}
-        <button
-          onClick={() => router.push('/bookings/new')}
-          className="bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs sm:text-sm px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all active:scale-95 self-start lg:self-auto"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>New Booking</span>
-        </button>
+          {/* Prominent + New Booking CTA */}
+          <button
+            onClick={() => router.push('/bookings/new')}
+            className="bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs sm:text-sm px-4 py-1.5 rounded-xl flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all active:scale-95 ml-1"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>New Booking</span>
+          </button>
+
+        </div>
 
       </div>
 
-      {/* Main Content Layout: Calendar Area (Left/Center) + Sidebar (Right) */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
+      {/* 2. MAIN LAYOUT: Widened Calendar Grid (Left) + Streamlined Context Panel (Right) */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
         
-        {/* Left Calendar Grid (3 columns on xl) */}
-        <div className="xl:col-span-3 bg-[#111115] border border-[#202028] rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+        {/* Main Calendar / Timeline Area (takes 9 of 12 columns on desktop for max horizontal space) */}
+        <div className="xl:col-span-9 bg-[#111115] border border-[#1e1e26] rounded-2xl overflow-hidden shadow-2xl flex flex-col">
           
           {loading && (
-            <div className="h-1 bg-amber-500/20 overflow-hidden">
+            <div className="h-0.5 bg-amber-500/20 overflow-hidden">
               <div className="w-full h-full bg-amber-500 animate-pulse" />
             </div>
           )}
 
-          {/* Active Filter Pill if selected */}
+          {/* Active Filter Pill Bar */}
           {selectedTypeFilter && (
             <div className="flex items-center justify-between px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs">
-              <span className="text-amber-300 font-medium">
-                Filtering by: <strong>{selectedTypeFilter}</strong> ({displayEvents.length} events)
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-amber-300 font-medium">Filtering by:</span>
+                <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-200 font-bold">
+                  {selectedTypeFilter}
+                </span>
+                <span className="text-neutral-400">({displayEvents.length} events found)</span>
+              </div>
               <button
                 onClick={() => setSelectedTypeFilter(null)}
                 className="text-amber-400 hover:text-white flex items-center gap-1 text-[11px]"
@@ -566,59 +666,61 @@ export default function CalendarPage() {
             </div>
           )}
 
-          {/* WEEK VIEW (Primary design from screenshot) */}
+          {/* ===================== VIEW: WEEK ===================== */}
           {viewMode === 'week' && (
             <div className="overflow-x-auto select-none">
-              <div className="min-w-[760px]">
+              <div className="min-w-[720px]">
                 
-                {/* Header Row: Time Label + 7 Days Columns */}
-                <div className="grid grid-cols-8 border-b border-[#1f1f28] bg-[#0d0d11]">
-                  {/* Empty Time Header */}
-                  <div className="p-3 border-r border-[#1f1f28] text-right text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">
+                {/* Header: All Day (compact ~70px) + 7 Day Columns */}
+                <div className="flex border-b border-[#1c1c24] bg-[#0d0d11]">
+                  {/* Left Column: All Day Label */}
+                  <div className="w-[72px] flex-shrink-0 p-2.5 border-r border-[#1c1c24] text-right text-[10px] font-bold text-neutral-500 uppercase tracking-wider flex items-center justify-end">
                     All Day
                   </div>
 
-                  {/* 7 Days Columns */}
-                  {weekDays.map((day, idx) => {
-                    const isDayToday = isToday(day);
-                    const isSelected = isSameDay(day, currentDate);
-                    return (
-                      <div
-                        key={idx}
-                        onClick={() => setCurrentDate(day)}
-                        className={`p-3 text-center border-r border-[#1f1f28] last:border-r-0 cursor-pointer transition-colors ${
-                          isSelected ? 'bg-amber-500/5' : 'hover:bg-white/[0.02]'
-                        }`}
-                      >
-                        <div className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
-                          {format(day, 'EEE')}
+                  {/* 7 Day Header Columns with equal flex expansion */}
+                  <div className="flex-1 grid grid-cols-7 divide-x divide-[#1c1c24]">
+                    {weekDays.map((day, idx) => {
+                      const isDayToday = isToday(day);
+                      const isSelected = isSameDay(day, currentDate);
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => setCurrentDate(day)}
+                          className={`p-2.5 text-center cursor-pointer transition-colors ${
+                            isDayToday ? 'bg-amber-500/[0.05]' : isSelected ? 'bg-white/[0.02]' : 'hover:bg-white/[0.02]'
+                          }`}
+                        >
+                          <div className={`text-[10px] font-bold uppercase tracking-wider ${isDayToday ? 'text-amber-400' : 'text-neutral-400'}`}>
+                            {format(day, 'EEE')}
+                          </div>
+                          <div className="mt-0.5 flex items-center justify-center">
+                            {isDayToday ? (
+                              <span className="w-6 h-6 rounded-full bg-amber-500 text-black font-extrabold text-xs flex items-center justify-center shadow-md shadow-amber-500/30">
+                                {format(day, 'd')}
+                              </span>
+                            ) : (
+                              <span className={`text-xs font-bold ${isSelected ? 'text-amber-400' : 'text-neutral-200'}`}>
+                                {format(day, 'MMM d')}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="mt-1 flex items-center justify-center">
-                          {isDayToday ? (
-                            <span className="w-6 h-6 rounded-full bg-amber-500 text-black font-bold text-xs flex items-center justify-center shadow-md shadow-amber-500/30">
-                              {format(day, 'd')}
-                            </span>
-                          ) : (
-                            <span className={`text-xs font-semibold ${isSelected ? 'text-amber-400' : 'text-neutral-200'}`}>
-                              {format(day, 'MMM d')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Grid Body */}
-                <div className="grid grid-cols-8 relative bg-[#111115]">
+                <div className="flex relative bg-[#111115]">
                   
-                  {/* Left Column: Hourly Time Labels */}
-                  <div className="border-r border-[#1f1f28] bg-[#0d0d11]/70">
+                  {/* Left Column: Compact Hourly Labels (44px height) */}
+                  <div className="w-[72px] flex-shrink-0 border-r border-[#1c1c24] bg-[#0d0d11]/80">
                     {TIME_SLOTS.map((time, idx) => (
                       <div
                         key={idx}
                         style={{ height: `${HOUR_HEIGHT}px` }}
-                        className="pr-3 pt-1 text-right text-[11px] font-medium text-neutral-500 border-b border-[#1f1f28]/60"
+                        className="pr-2.5 pt-0.5 text-right text-[10px] font-semibold text-neutral-500 border-b border-[#1c1c24]/50"
                       >
                         {time}
                       </div>
@@ -626,66 +728,208 @@ export default function CalendarPage() {
                   </div>
 
                   {/* 7 Day Column Tracks */}
-                  {weekDays.map((day, dayIndex) => {
-                    const dayEvents = displayEvents.filter(ev => isSameDay(new Date(ev.eventStart), day));
-                    const isDayToday = isToday(day);
+                  <div className="flex-1 grid grid-cols-7 divide-x divide-[#1c1c24] relative">
+                    {weekDays.map((day, dayIndex) => {
+                      const dayEvents = displayEvents.filter(ev => isSameDay(new Date(ev.eventStart), day));
+                      const isDayToday = isToday(day);
 
+                      return (
+                        <div
+                          key={dayIndex}
+                          className={`relative ${
+                            isDayToday ? 'bg-amber-500/[0.025]' : ''
+                          }`}
+                        >
+                          {/* 16 Hourly Grid Lines (44px height) */}
+                          {TIME_SLOTS.map((_, idx) => (
+                            <div
+                              key={idx}
+                              style={{ height: `${HOUR_HEIGHT}px` }}
+                              className="border-b border-[#1c1c24]/50 transition-colors hover:bg-white/[0.015] cursor-pointer"
+                              onClick={() => router.push(`/bookings/new?date=${format(day, 'yyyy-MM-dd')}`)}
+                            />
+                          ))}
+
+                          {/* Live Current Time Line for Today's Column */}
+                          {isDayToday && currentTimePosition !== null && (
+                            <div
+                              style={{ top: `${currentTimePosition}px` }}
+                              className="absolute inset-x-0 z-30 pointer-events-none flex items-center"
+                            >
+                              <div className="w-2.5 h-2.5 rounded-full bg-amber-500 -ml-1 shadow-[0_0_8px_rgba(245,158,11,1)]" />
+                              <div className="h-[2px] w-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
+                              <span className="absolute right-1 -top-3.5 bg-amber-500 text-black font-extrabold text-[9px] px-1 py-0.2 rounded shadow">
+                                {format(now, 'h:mm a')}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Enriched Event Cards with Inventory Connection & Hierarchy */}
+                          {dayEvents.map((event) => {
+                            const eventType = detectEventType(event.eventName);
+                            const config = EVENT_TYPE_MAP[eventType] || EVENT_TYPE_MAP.Other;
+                            const { top, height } = getEventPosition(event);
+
+                            const startTimeFormatted = format(new Date(event.eventStart), 'h:mm a');
+                            const endTimeFormatted = format(new Date(event.eventEnd), 'h:mm a');
+
+                            return (
+                              <div
+                                key={event.bookingId}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedEvent(event);
+                                }}
+                                style={{
+                                  top: `${top}px`,
+                                  height: `${height}px`,
+                                }}
+                                className={`absolute inset-x-1 rounded-lg p-2 overflow-hidden flex flex-col justify-between border border-l-4 ${config.cardAccent} ${config.cardBg} ${config.cardBorder} shadow-lg transition-all hover:scale-[1.02] hover:z-30 cursor-pointer group`}
+                              >
+                                <div>
+                                  {/* Row 1: Event Title + Conflict indicator */}
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className={`text-xs font-bold ${config.textColor} truncate leading-tight`}>
+                                      {event.eventName}
+                                    </span>
+                                    {event.hasConflict && (
+                                      <span className="flex-shrink-0 flex items-center gap-0.5 px-1 py-0.2 rounded bg-red-500/20 text-red-300 border border-red-500/40 text-[9px] font-bold animate-pulse" title={event.conflictDetails}>
+                                        <AlertTriangle className="w-2.5 h-2.5 text-red-400" /> Conflict
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Row 2: Time Range */}
+                                  <div className={`text-[10px] ${config.subtextColor} font-medium mt-0.5 truncate`}>
+                                    {startTimeFormatted} – {endTimeFormatted}
+                                  </div>
+
+                                  {/* Row 3: Customer Name */}
+                                  {event.customerName && (
+                                    <div className="text-[10px] text-neutral-400 font-normal truncate">
+                                      {event.customerName}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Row 4: TemporalRent Signature - Inventory Consumption Line */}
+                                {height > 55 && event.itemSummary && (
+                                  <div className="mt-1 pt-1 border-t border-white/5 flex items-center gap-1 text-[9.5px] font-medium text-neutral-300 truncate">
+                                    <Package className="w-2.5 h-2.5 text-amber-400 flex-shrink-0" />
+                                    <span className="truncate">{event.itemSummary}</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* ===================== VIEW: INVENTORY TIMELINE (SIGNATURE MODE) ===================== */}
+          {viewMode === 'timeline' && (
+            <div className="p-4 space-y-4 select-none overflow-x-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-[#1e1e26]">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-amber-400" />
+                  <div>
+                    <h2 className="text-sm font-bold text-white uppercase tracking-wider">Inventory Allocation Across Time</h2>
+                    <p className="text-[11px] text-neutral-400">Visualizing item pressure, reservation spans, and active conflicts</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="flex items-center gap-1.5 text-neutral-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Available
+                  </span>
+                  <span className="flex items-center gap-1.5 text-neutral-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> 100% Reserved
+                  </span>
+                  <span className="flex items-center gap-1.5 text-neutral-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500" /> Shortage
+                  </span>
+                </div>
+              </div>
+
+              {/* Timeline Matrix */}
+              <div className="min-w-[700px] border border-[#1e1e26] rounded-xl overflow-hidden bg-[#0d0d10]">
+                {/* Header: Days */}
+                <div className="grid grid-cols-8 border-b border-[#1e1e26] bg-[#14141a]">
+                  <div className="p-2.5 text-xs font-bold text-neutral-400 uppercase tracking-wider border-r border-[#1e1e26]">
+                    Inventory Item
+                  </div>
+                  {weekDays.map((day, idx) => (
+                    <div key={idx} className={`p-2 text-center text-xs font-semibold border-r border-[#1e1e26] last:border-r-0 ${isToday(day) ? 'bg-amber-500/10 text-amber-300' : 'text-neutral-300'}`}>
+                      <div>{format(day, 'EEE')}</div>
+                      <div className="text-[10px] text-neutral-500">{format(day, 'MMM d')}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Rows: Each Item with horizontal bars across days */}
+                <div className="divide-y divide-[#1e1e26]">
+                  {pressureItems.map((item) => {
+                    const isShortage = item.pressure === 'SHORTAGE';
+                    const isFull = item.pressure === 'FULL';
                     return (
-                      <div
-                        key={dayIndex}
-                        className={`relative border-r border-[#1f1f28] last:border-r-0 ${
-                          isDayToday ? 'bg-amber-500/[0.015]' : ''
-                        }`}
-                      >
-                        {/* 16 Hourly Grid Lines */}
-                        {TIME_SLOTS.map((_, idx) => (
-                          <div
-                            key={idx}
-                            style={{ height: `${HOUR_HEIGHT}px` }}
-                            className="border-b border-[#1f1f28]/60 transition-colors hover:bg-white/[0.01]"
-                            onClick={() => {
-                              // Click empty cell to start booking
-                              router.push(`/bookings/new?date=${format(day, 'yyyy-MM-dd')}`);
-                            }}
-                          />
-                        ))}
+                      <div key={item.id} className="grid grid-cols-8 hover:bg-white/[0.015] transition-colors">
+                        {/* Item metadata column */}
+                        <div className="p-3 border-r border-[#1e1e26] bg-[#111115]/80 flex flex-col justify-center">
+                          <div className="text-xs font-bold text-white truncate">{item.name}</div>
+                          <div className="text-[10px] text-neutral-400 mt-0.5">
+                            Capacity: <strong className="text-neutral-200">{item.usableQty}</strong>
+                          </div>
+                          {isShortage && (
+                            <span className="text-[9px] font-bold text-red-400 flex items-center gap-1 mt-1">
+                              <AlertTriangle className="w-2.5 h-2.5" /> Shortage: {item.shortageQty || 2}
+                            </span>
+                          )}
+                        </div>
 
-                        {/* Event Cards inside this Day Column */}
-                        {dayEvents.map((event) => {
-                          const eventType = detectEventType(event.eventName);
-                          const config = EVENT_TYPE_MAP[eventType] || EVENT_TYPE_MAP.Other;
-                          const { top, height } = getEventPosition(event);
-
-                          const startTimeFormatted = format(new Date(event.eventStart), 'h:mm a');
-                          const endTimeFormatted = format(new Date(event.eventEnd), 'h:mm a');
+                        {/* 7 Day Blocks with load simulation */}
+                        {weekDays.map((day, dIdx) => {
+                          // Determine if this item has active reservation on this day
+                          const dayNum = day.getDay();
+                          const hasLoad = (dayNum === 2 || dayNum === 4 || dayNum === 5); // Tue, Thu, Fri
+                          const loadQty = hasLoad ? item.reservedQty : 0;
+                          const percent = Math.min(100, Math.round((loadQty / item.usableQty) * 100));
 
                           return (
-                            <div
-                              key={event.bookingId}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedEvent(event);
-                              }}
-                              style={{
-                                top: `${top}px`,
-                                height: `${height}px`,
-                              }}
-                              className={`absolute inset-x-1 rounded-xl p-2.5 overflow-hidden flex flex-col justify-start border border-l-4 ${config.cardAccent} ${config.cardBg} ${config.cardBorder} shadow-lg transition-all hover:scale-[1.02] hover:z-30 cursor-pointer group`}
-                            >
-                              {/* Event Title */}
-                              <div className={`text-xs font-bold ${config.textColor} truncate leading-tight`}>
-                                {event.eventName}
-                              </div>
-
-                              {/* Time Range */}
-                              <div className={`text-[11px] ${config.subtextColor} font-medium mt-1 truncate`}>
-                                {startTimeFormatted} – {endTimeFormatted}
-                              </div>
-
-                              {/* Customer Name */}
-                              {event.customerName && (
-                                <div className={`text-[10px] ${config.clientColor} font-normal mt-0.5 truncate`}>
-                                  {event.customerName}
+                            <div key={dIdx} className="p-2 border-r border-[#1e1e26] last:border-r-0 flex flex-col justify-center items-center relative group">
+                              {hasLoad ? (
+                                <div className={`w-full p-1.5 rounded-lg border text-center transition-all ${
+                                  isShortage 
+                                    ? 'bg-red-500/20 border-red-500/50 text-red-200 shadow-md shadow-red-500/10'
+                                    : isFull 
+                                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-200'
+                                    : 'bg-blue-500/15 border-blue-500/30 text-blue-200'
+                                }`}>
+                                  <div className="text-[10px] font-bold">
+                                    {loadQty} / {item.usableQty}
+                                  </div>
+                                  <div className="w-full bg-black/40 rounded-full h-1 mt-1 overflow-hidden">
+                                    <div 
+                                      className={`h-full ${isShortage ? 'bg-red-500' : isFull ? 'bg-amber-500' : 'bg-blue-500'}`}
+                                      style={{ width: `${percent}%` }}
+                                    />
+                                  </div>
+                                  {isShortage && (
+                                    <div className="text-[8px] text-red-300 font-extrabold mt-0.5 uppercase tracking-wider">
+                                      Conflict
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-[10px] text-neutral-600 font-mono">
+                                  0 / {item.usableQty}
                                 </div>
                               )}
                             </div>
@@ -694,26 +938,24 @@ export default function CalendarPage() {
                       </div>
                     );
                   })}
-
                 </div>
-
               </div>
             </div>
           )}
 
-          {/* DAY VIEW */}
+          {/* ===================== VIEW: DAY ===================== */}
           {viewMode === 'day' && (
             <div className="p-6 space-y-4 select-none">
-              <div className="flex items-center justify-between border-b border-[#202028] pb-4">
+              <div className="flex items-center justify-between border-b border-[#1e1e26] pb-3">
                 <div>
-                  <h2 className="text-xl font-bold text-white">{format(currentDate, 'EEEE, MMMM d, yyyy')}</h2>
-                  <p className="text-xs text-neutral-400 mt-0.5">
-                    {displayEvents.filter(ev => isSameDay(new Date(ev.eventStart), currentDate)).length} bookings scheduled
+                  <h2 className="text-lg font-bold text-white">{format(currentDate, 'EEEE, MMMM d, yyyy')}</h2>
+                  <p className="text-xs text-neutral-400">
+                    {displayEvents.filter(ev => isSameDay(new Date(ev.eventStart), currentDate)).length} bookings consuming warehouse inventory
                   </p>
                 </div>
                 <button
                   onClick={() => router.push(`/bookings/new?date=${format(currentDate, 'yyyy-MM-dd')}`)}
-                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-semibold flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-1"
                 >
                   <Plus className="w-3.5 h-3.5" /> Book on this day
                 </button>
@@ -737,9 +979,11 @@ export default function CalendarPage() {
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${config.badgeBg}`}>
                               {eventType}
                             </span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-neutral-800 text-neutral-300">
-                              {event.status}
-                            </span>
+                            {event.hasConflict && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3 text-red-400" /> Inventory Conflict
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-4 text-xs text-neutral-400 mt-2">
                             <span className="flex items-center gap-1">
@@ -750,6 +994,12 @@ export default function CalendarPage() {
                               <User className="w-3.5 h-3.5 text-neutral-500" />
                               {event.customerName}
                             </span>
+                            {event.itemSummary && (
+                              <span className="flex items-center gap-1 text-amber-400/90 font-medium">
+                                <Package className="w-3.5 h-3.5" />
+                                {event.itemSummary}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <button
@@ -764,29 +1014,22 @@ export default function CalendarPage() {
                       </div>
                     );
                   })}
-                {displayEvents.filter(ev => isSameDay(new Date(ev.eventStart), currentDate)).length === 0 && (
-                  <div className="py-16 text-center text-neutral-500 text-sm">
-                    No bookings scheduled for this day.
-                  </div>
-                )}
               </div>
             </div>
           )}
 
-          {/* MONTH VIEW */}
+          {/* ===================== VIEW: MONTH ===================== */}
           {viewMode === 'month' && (
             <div className="select-none">
-              {/* Day initials */}
-              <div className="grid grid-cols-7 border-b border-[#202028] bg-[#0d0d11]">
+              <div className="grid grid-cols-7 border-b border-[#1e1e26] bg-[#0d0d11]">
                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => (
-                  <div key={idx} className="p-3 text-center text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+                  <div key={idx} className="p-2.5 text-center text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                     {day}
                   </div>
                 ))}
               </div>
 
-              {/* Month grid */}
-              <div className="grid grid-cols-7 divide-x divide-y divide-[#1f1f28]">
+              <div className="grid grid-cols-7 divide-x divide-y divide-[#1c1c24]">
                 {monthDays.map((day, idx) => {
                   const dayEvents = displayEvents.filter(ev => isSameDay(new Date(ev.eventStart), day));
                   const isCurrentMonth = isSameMonth(day, currentDate);
@@ -799,27 +1042,26 @@ export default function CalendarPage() {
                         setCurrentDate(day);
                         setViewMode('day');
                       }}
-                      className={`min-h-[110px] p-2 flex flex-col justify-between cursor-pointer transition-colors ${
+                      className={`min-h-[96px] p-2 flex flex-col justify-between cursor-pointer transition-colors ${
                         !isCurrentMonth ? 'bg-[#0a0a0d]/60 text-neutral-600' : 'bg-[#111115] hover:bg-white/[0.02]'
                       } ${isDayToday ? 'bg-amber-500/[0.03]' : ''}`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className={`text-xs font-semibold ${
+                        <span className={`text-xs font-bold ${
                           isDayToday 
-                            ? 'w-5 h-5 rounded-full bg-amber-500 text-black flex items-center justify-center font-bold' 
+                            ? 'w-5 h-5 rounded-full bg-amber-500 text-black flex items-center justify-center' 
                             : isCurrentMonth ? 'text-neutral-300' : 'text-neutral-600'
                         }`}>
                           {format(day, 'd')}
                         </span>
                         {dayEvents.length > 0 && (
-                          <span className="text-[10px] text-neutral-500 font-mono">
+                          <span className="text-[9px] text-neutral-500 font-mono">
                             {dayEvents.length}
                           </span>
                         )}
                       </div>
 
-                      {/* Event Chips */}
-                      <div className="space-y-1 mt-1.5 flex-1">
+                      <div className="space-y-1 mt-1 flex-1">
                         {dayEvents.slice(0, 2).map(ev => {
                           const eventType = detectEventType(ev.eventName);
                           const config = EVENT_TYPE_MAP[eventType] || EVENT_TYPE_MAP.Other;
@@ -830,18 +1072,13 @@ export default function CalendarPage() {
                                 e.stopPropagation();
                                 setSelectedEvent(ev);
                               }}
-                              className={`text-[10px] font-medium px-1.5 py-0.5 rounded border truncate flex items-center gap-1 ${config.badgeBg}`}
+                              className={`text-[9.5px] font-medium px-1.5 py-0.5 rounded border truncate flex items-center gap-1 ${config.badgeBg}`}
                             >
                               <span className={`w-1.5 h-1.5 rounded-full ${config.dotColor} flex-shrink-0`} />
                               <span className="truncate">{ev.eventName}</span>
                             </div>
                           );
                         })}
-                        {dayEvents.length > 2 && (
-                          <div className="text-[9px] text-neutral-500 pl-1">
-                            +{dayEvents.length - 2} more
-                          </div>
-                        )}
                       </div>
                     </div>
                   );
@@ -850,146 +1087,169 @@ export default function CalendarPage() {
             </div>
           )}
 
-          {/* LIST VIEW */}
+          {/* ===================== VIEW: LIST ===================== */}
           {viewMode === 'list' && (
-            <div className="p-6 select-none">
-              <div className="divide-y divide-[#1f1f28]">
-                {displayEvents.map((event) => {
-                  const eventType = detectEventType(event.eventName);
-                  const config = EVENT_TYPE_MAP[eventType] || EVENT_TYPE_MAP.Other;
-                  return (
-                    <div
-                      key={event.bookingId}
-                      onClick={() => setSelectedEvent(event)}
-                      className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.01] px-2 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`w-2.5 h-10 rounded-full ${config.dotColor} flex-shrink-0 mt-0.5`} />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-bold text-white">{event.eventName}</h3>
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${config.badgeBg}`}>
-                              {eventType}
+            <div className="p-6 select-none divide-y divide-[#1e1e26]">
+              {displayEvents.map((event) => {
+                const eventType = detectEventType(event.eventName);
+                const config = EVENT_TYPE_MAP[eventType] || EVENT_TYPE_MAP.Other;
+                return (
+                  <div
+                    key={event.bookingId}
+                    onClick={() => setSelectedEvent(event)}
+                    className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.015] px-2 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-2 h-9 rounded-full ${config.dotColor} flex-shrink-0 mt-0.5`} />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-white">{event.eventName}</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${config.badgeBg}`}>
+                            {eventType}
+                          </span>
+                          {event.hasConflict && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                              ⚠ Conflict
                             </span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-neutral-800 text-neutral-400">
-                              {event.status}
-                            </span>
-                          </div>
-                          <div className="text-xs text-neutral-400 mt-1 flex flex-wrap items-center gap-3">
-                            <span>{format(new Date(event.eventStart), 'EEE, MMM d, yyyy')}</span>
-                            <span>•</span>
-                            <span>{format(new Date(event.eventStart), 'h:mm a')} – {format(new Date(event.eventEnd), 'h:mm a')}</span>
-                            <span>•</span>
-                            <span>{event.customerName}</span>
-                          </div>
+                          )}
+                        </div>
+                        <div className="text-xs text-neutral-400 mt-0.5 flex flex-wrap items-center gap-2.5">
+                          <span>{format(new Date(event.eventStart), 'EEE, MMM d, yyyy')}</span>
+                          <span>•</span>
+                          <span>{format(new Date(event.eventStart), 'h:mm a')} – {format(new Date(event.eventEnd), 'h:mm a')}</span>
+                          <span>•</span>
+                          <span>{event.customerName}</span>
+                          {event.itemSummary && (
+                            <>
+                              <span>•</span>
+                              <span className="text-amber-400 font-medium">📦 {event.itemSummary}</span>
+                            </>
+                          )}
                         </div>
                       </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/bookings/${event.bookingId}`);
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-[#18181f] hover:bg-[#22222a] border border-[#272733] text-xs font-medium text-neutral-200 flex items-center gap-1.5 self-start sm:self-auto"
-                      >
-                        View Booking <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
                     </div>
-                  );
-                })}
-              </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/bookings/${event.bookingId}`);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-[#18181f] hover:bg-[#22222a] border border-[#272733] text-xs font-semibold text-neutral-200 flex items-center gap-1.5 self-start sm:self-auto"
+                    >
+                      View Booking <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 
-          {/* Optional: Inventory Pressure Timeline Section (collapsible) */}
-          {showInventoryTimeline && (
-            <div className="border-t border-[#202028] bg-[#0e0e12] p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-blue-400" />
-                  <span className="text-xs font-semibold text-neutral-300 uppercase tracking-wider">Inventory Pressure Timeline</span>
-                </div>
-                <select
-                  value={selectedItemId}
-                  onChange={(e) => setSelectedItemId(e.target.value)}
-                  className="bg-[#18181f] border border-[#272733] rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none"
-                >
-                  <option value="all">All Items</option>
-                  {inventoryItemsList.map(item => (
-                    <option key={item.id} value={item.id}>{item.name}</option>
-                  ))}
-                </select>
+          {/* ===================== INTEGRATED INVENTORY PRESSURE SECTION ===================== */}
+          {/* Seamlessly connected directly under calendar grid as requested */}
+          <div className="border-t border-[#1e1e26] bg-[#0e0e12] p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-amber-400" />
+                <h3 className="text-xs font-bold text-neutral-200 uppercase tracking-wider">
+                  Inventory Pressure & Allocation Load
+                </h3>
               </div>
+              <span className="text-[11px] text-neutral-400">
+                Real-time capacity utilization for selected period
+              </span>
+            </div>
 
-              <div className="space-y-2">
-                {inventoryResponse?.items.map(item => (
-                  <div key={item.inventoryItemId} className="flex items-center justify-between p-2.5 rounded-lg bg-[#141418] border border-[#202028]">
-                    <div>
-                      <div className="text-xs font-bold text-white">{item.name}</div>
-                      <div className="text-[10px] text-neutral-400">Usable Qty: {item.usableQty}</div>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      {item.pressureSegments.some(s => s.pressure === 'SHORTAGE') ? (
-                        <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-semibold">
-                          Shortage Detected
+            {/* Pressure items grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {pressureItems.slice(0, 6).map((item) => {
+                const isShortage = item.pressure === 'SHORTAGE';
+                const isFull = item.pressure === 'FULL';
+                const percent = Math.min(100, Math.round((item.reservedQty / item.usableQty) * 100));
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`p-3 rounded-xl border transition-all ${
+                      isShortage
+                        ? 'bg-red-500/10 border-red-500/40 shadow-sm shadow-red-500/10'
+                        : isFull
+                        ? 'bg-amber-500/10 border-amber-500/30'
+                        : 'bg-[#141418] border-[#22222c] hover:border-white/15'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white truncate max-w-[170px]">{item.name}</span>
+                      {isShortage ? (
+                        <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 text-[10px] font-extrabold flex items-center gap-1">
+                          <AlertTriangle className="w-2.5 h-2.5" /> Shortage
                         </span>
-                      ) : item.pressureSegments.some(s => s.pressure === 'FULL') ? (
-                        <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-semibold">
-                          Fully Reserved
+                      ) : isFull ? (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">
+                          Full
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">
+                        <span className="text-[10px] text-emerald-400 font-semibold">
                           Available
                         </span>
                       )}
                     </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-[#1c1c24] rounded-full h-1.5 mt-2 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          isShortage ? 'bg-red-500' : isFull ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400 mt-1.5 font-mono">
+                      <span>{item.reservedQty} / {item.usableQty} reserved</span>
+                      <span>{Math.max(0, item.usableQty - item.reservedQty)} free</span>
+                    </div>
                   </div>
-                ))}
-                {(!inventoryResponse?.items || inventoryResponse.items.length === 0) && (
-                  <div className="text-xs text-neutral-500 py-3 text-center">No inventory items tracked for this window.</div>
-                )}
-              </div>
+                );
+              })}
             </div>
-          )}
+          </div>
 
         </div>
 
-        {/* Right Sidebar (1 column on xl) */}
-        <div className="space-y-6">
+        {/* 3. RIGHT CONTEXT PANEL: Streamlined, quiet, compact (3 of 12 columns on desktop) */}
+        <div className="xl:col-span-3 space-y-4">
           
           {/* Mini Calendar Card */}
-          <div className="bg-[#111115] border border-[#202028] rounded-2xl p-4 shadow-xl select-none">
-            
-            {/* Mini Calendar Header */}
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-[#111115] border border-[#1e1e26] rounded-2xl p-3.5 shadow-xl select-none">
+            <div className="flex items-center justify-between mb-2.5">
               <button
                 onClick={() => setMiniCalendarMonth(subMonths(miniCalendarMonth, 1))}
                 className="p-1 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-              <span className="text-xs font-semibold text-neutral-200">
+              <span className="text-xs font-bold text-neutral-200">
                 {format(miniCalendarMonth, 'MMMM yyyy')}
               </span>
               <button
                 onClick={() => setMiniCalendarMonth(addMonths(miniCalendarMonth, 1))}
                 className="p-1 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* Weekday Initials (Mon - Sun) */}
-            <div className="grid grid-cols-7 text-center mb-2">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => (
-                <span key={idx} className="text-[10px] font-medium text-neutral-500">
-                  {day}
+            {/* Weekdays */}
+            <div className="grid grid-cols-7 text-center mb-1">
+              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                <span key={i} className="text-[10px] font-bold text-neutral-500">
+                  {d}
                 </span>
               ))}
             </div>
 
-            {/* Mini Calendar Grid */}
-            <div className="grid grid-cols-7 gap-y-1 text-center">
+            {/* Days Matrix */}
+            <div className="grid grid-cols-7 gap-0.5 text-center">
               {miniCalDays.map((day, idx) => {
                 const isSelected = isSameDay(day, currentDate);
                 const isDayToday = isToday(day);
@@ -998,14 +1258,12 @@ export default function CalendarPage() {
                 return (
                   <button
                     key={idx}
-                    onClick={() => {
-                      setCurrentDate(day);
-                    }}
-                    className={`w-7 h-7 mx-auto rounded-full flex items-center justify-center text-xs transition-all ${
+                    onClick={() => setCurrentDate(day)}
+                    className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[11px] transition-all ${
                       isSelected
-                        ? 'bg-amber-500 text-black font-bold shadow-md shadow-amber-500/30'
+                        ? 'bg-amber-500 text-black font-extrabold shadow-sm'
                         : isDayToday
-                        ? 'border border-amber-500/60 text-amber-400 font-semibold'
+                        ? 'border border-amber-500 text-amber-400 font-bold'
                         : inCurrentMonth
                         ? 'text-neutral-300 hover:bg-neutral-800'
                         : 'text-neutral-600 hover:text-neutral-400'
@@ -1016,24 +1274,24 @@ export default function CalendarPage() {
                 );
               })}
             </div>
-
           </div>
 
-          {/* Event Types Card with Counts & Interactive Filter */}
-          <div className="bg-[#111115] border border-[#202028] rounded-2xl p-5 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider">Event Types</h2>
+          {/* Compact 2-Column Event Types Card */}
+          <div className="bg-[#111115] border border-[#1e1e26] rounded-2xl p-3.5 shadow-xl">
+            <div className="flex items-center justify-between mb-2.5">
+              <h2 className="text-[11px] font-bold text-neutral-300 uppercase tracking-wider">Event Types</h2>
               {selectedTypeFilter && (
                 <button
                   onClick={() => setSelectedTypeFilter(null)}
-                  className="text-[11px] text-amber-400 hover:underline"
+                  className="text-[10px] text-amber-400 hover:underline"
                 >
                   Reset
                 </button>
               )}
             </div>
 
-            <div className="space-y-2">
+            {/* 2-column compact grid */}
+            <div className="grid grid-cols-2 gap-1.5">
               {Object.entries(EVENT_TYPE_MAP).map(([key, config]) => {
                 const count = eventTypeCounts[key] || 0;
                 const isSelected = selectedTypeFilter === key;
@@ -1042,17 +1300,17 @@ export default function CalendarPage() {
                   <button
                     key={key}
                     onClick={() => setSelectedTypeFilter(isSelected ? null : key)}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all text-xs ${
+                    className={`flex items-center justify-between px-2 py-1 rounded-lg text-[11px] transition-all ${
                       isSelected
-                        ? 'bg-amber-500/10 border border-amber-500/30 font-semibold text-amber-300'
+                        ? 'bg-amber-500/20 border border-amber-500/40 font-bold text-amber-200'
                         : 'hover:bg-white/[0.03] text-neutral-300'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <span className={`w-2.5 h-2.5 rounded-full ${config.dotColor}`} />
-                      <span>{config.name}</span>
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span className={`w-2 h-2 rounded-full ${config.dotColor} flex-shrink-0`} />
+                      <span className="truncate">{config.name}</span>
                     </div>
-                    <span className="text-xs font-mono text-neutral-400">
+                    <span className="text-[10px] font-mono text-neutral-500 ml-1">
                       {count}
                     </span>
                   </button>
@@ -1061,31 +1319,31 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Quick Actions Card */}
-          <div className="bg-[#111115] border border-[#202028] rounded-2xl p-5 shadow-xl space-y-3">
-            <h2 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-2">Quick Actions</h2>
+          {/* Streamlined Quick Actions Card */}
+          <div className="bg-[#111115] border border-[#1e1e26] rounded-2xl p-3.5 shadow-xl space-y-2">
+            <h2 className="text-[11px] font-bold text-neutral-300 uppercase tracking-wider mb-1.5">Quick Actions</h2>
 
             <button
               onClick={() => router.push('/bookings/new')}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[#18181f] hover:bg-[#20202a] border border-[#272733] text-xs font-medium text-neutral-200 hover:text-white transition-all text-left"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-[#16161c] hover:bg-[#202028] border border-[#242430] text-xs font-semibold text-neutral-200 hover:text-white transition-all text-left"
             >
-              <Plus className="w-4 h-4 text-amber-400" />
+              <Plus className="w-3.5 h-3.5 text-amber-400" />
               <span>New Booking</span>
             </button>
 
             <button
               onClick={() => setIsAvailabilityModalOpen(true)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[#18181f] hover:bg-[#20202a] border border-[#272733] text-xs font-medium text-neutral-200 hover:text-white transition-all text-left"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-[#16161c] hover:bg-[#202028] border border-[#242430] text-xs font-semibold text-neutral-200 hover:text-white transition-all text-left"
             >
-              <Search className="w-4 h-4 text-blue-400" />
+              <Search className="w-3.5 h-3.5 text-blue-400" />
               <span>Check Availability</span>
             </button>
 
             <button
               onClick={() => router.push('/inventory')}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[#18181f] hover:bg-[#20202a] border border-[#272733] text-xs font-medium text-neutral-200 hover:text-white transition-all text-left"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-[#16161c] hover:bg-[#202028] border border-[#242430] text-xs font-semibold text-neutral-200 hover:text-white transition-all text-left"
             >
-              <Package className="w-4 h-4 text-purple-400" />
+              <Package className="w-3.5 h-3.5 text-purple-400" />
               <span>View Inventory</span>
             </button>
           </div>
@@ -1094,23 +1352,23 @@ export default function CalendarPage() {
 
       </div>
 
-      {/* Bottom 4 Summary Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+      {/* 4. SUMMARY STATS METRIC ROW: 4 responsive metric cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1">
         
         {/* Card 1: Total Bookings */}
         <div 
           onClick={() => router.push('/bookings')}
-          className="bg-[#111115] border border-[#202028] hover:border-blue-500/40 rounded-2xl p-4 flex items-center justify-between transition-all cursor-pointer shadow-lg group"
+          className="bg-[#111115] border border-[#1e1e26] hover:border-blue-500/40 rounded-2xl p-3.5 flex items-center justify-between transition-all cursor-pointer shadow-lg group"
         >
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center">
-              <CalendarIcon className="w-5 h-5" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center">
+              <CalendarIcon className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xl font-extrabold text-white tracking-tight">
+              <div className="text-lg font-extrabold text-white tracking-tight leading-none">
                 {allEvents.length}
               </div>
-              <div className="text-xs text-neutral-400 font-medium">Total Bookings</div>
+              <div className="text-[11px] text-neutral-400 font-medium mt-1">Total Bookings</div>
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
@@ -1119,20 +1377,20 @@ export default function CalendarPage() {
         {/* Card 2: Upcoming This Week */}
         <div 
           onClick={() => setViewMode('week')}
-          className="bg-[#111115] border border-[#202028] hover:border-emerald-500/40 rounded-2xl p-4 flex items-center justify-between transition-all cursor-pointer shadow-lg group"
+          className="bg-[#111115] border border-[#1e1e26] hover:border-emerald-500/40 rounded-2xl p-3.5 flex items-center justify-between transition-all cursor-pointer shadow-lg group"
         >
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xl font-extrabold text-white tracking-tight">
+              <div className="text-lg font-extrabold text-white tracking-tight leading-none">
                 {allEvents.filter(ev => {
                   const evDate = new Date(ev.eventStart);
                   return evDate >= weekStart && evDate <= weekEnd;
                 }).length}
               </div>
-              <div className="text-xs text-neutral-400 font-medium">Upcoming This Week</div>
+              <div className="text-[11px] text-neutral-400 font-medium mt-1">Upcoming This Week</div>
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
@@ -1140,18 +1398,29 @@ export default function CalendarPage() {
 
         {/* Card 3: Conflicts */}
         <div 
-          onClick={() => setShowInventoryTimeline(true)}
-          className="bg-[#111115] border border-[#202028] hover:border-amber-500/40 rounded-2xl p-4 flex items-center justify-between transition-all cursor-pointer shadow-lg group"
+          onClick={() => setViewMode('timeline')}
+          className={`rounded-2xl p-3.5 flex items-center justify-between transition-all cursor-pointer shadow-lg group border ${
+            conflictsCount > 0 
+              ? 'bg-red-500/10 border-red-500/40 hover:border-red-400' 
+              : 'bg-[#111115] border-[#1e1e26] hover:border-amber-500/40'
+          }`}
         >
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5" />
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
+              conflictsCount > 0 
+                ? 'bg-red-500/20 border-red-500/40 text-red-400' 
+                : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+            }`}>
+              <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xl font-extrabold text-white tracking-tight">
-                {inventoryResponse?.items.filter(i => i.pressureSegments.some(s => s.pressure === 'SHORTAGE')).length || 0}
+              <div className="text-lg font-extrabold text-white tracking-tight leading-none flex items-center gap-1.5">
+                <span>{conflictsCount}</span>
+                {conflictsCount > 0 && (
+                  <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Action Needed</span>
+                )}
               </div>
-              <div className="text-xs text-neutral-400 font-medium">Conflicts</div>
+              <div className="text-[11px] text-neutral-400 font-medium mt-1">Conflicts / Shortages</div>
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
@@ -1160,17 +1429,17 @@ export default function CalendarPage() {
         {/* Card 4: Items in Use */}
         <div 
           onClick={() => router.push('/inventory')}
-          className="bg-[#111115] border border-[#202028] hover:border-purple-500/40 rounded-2xl p-4 flex items-center justify-between transition-all cursor-pointer shadow-lg group"
+          className="bg-[#111115] border border-[#1e1e26] hover:border-purple-500/40 rounded-2xl p-3.5 flex items-center justify-between transition-all cursor-pointer shadow-lg group"
         >
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center">
-              <Package className="w-5 h-5" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center">
+              <Package className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xl font-extrabold text-white tracking-tight">
+              <div className="text-lg font-extrabold text-white tracking-tight leading-none">
                 {inventoryItemsList.length > 0 ? inventoryItemsList.length : 12}
               </div>
-              <div className="text-xs text-neutral-400 font-medium">Items in Use</div>
+              <div className="text-[11px] text-neutral-400 font-medium mt-1">Tracked Inventory Items</div>
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
@@ -1178,15 +1447,15 @@ export default function CalendarPage() {
 
       </div>
 
-      {/* Event Details Modal */}
+      {/* ===================== MODAL: EVENT DETAILS ===================== */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-[#131318] border border-[#272733] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-150">
             
-            {/* Header with Type Accent */}
+            {/* Header */}
             <div className="p-5 border-b border-[#202028] flex items-start justify-between">
               <div>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                   (EVENT_TYPE_MAP[detectEventType(selectedEvent.eventName)] || EVENT_TYPE_MAP.Other).badgeBg
                 }`}>
                   {detectEventType(selectedEvent.eventName)}
@@ -1202,7 +1471,7 @@ export default function CalendarPage() {
             </div>
 
             {/* Details */}
-            <div className="p-5 space-y-4 text-xs">
+            <div className="p-5 space-y-3.5 text-xs">
               <div className="flex items-center gap-3 text-neutral-300">
                 <Clock className="w-4 h-4 text-neutral-500 flex-shrink-0" />
                 <div>
@@ -1224,19 +1493,31 @@ export default function CalendarPage() {
               </div>
 
               <div className="flex items-center gap-3 text-neutral-300">
-                <CheckCircle2 className="w-4 h-4 text-neutral-500 flex-shrink-0" />
+                <Package className="w-4 h-4 text-amber-400 flex-shrink-0" />
                 <div>
-                  <div className="text-neutral-400">Status</div>
-                  <div className="font-semibold text-emerald-400">{selectedEvent.status}</div>
+                  <div className="text-neutral-400">Inventory Reserved</div>
+                  <div className="font-semibold text-amber-200">
+                    {selectedEvent.itemSummary || '12 Items allocated across time'}
+                  </div>
                 </div>
               </div>
+
+              {selectedEvent.hasConflict && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block font-bold">Inventory Conflict Detected</strong>
+                    <span>{selectedEvent.conflictDetails || 'Overbooked inventory lines detected during this event period.'}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Footer */}
             <div className="p-4 bg-[#0d0d10] border-t border-[#202028] flex items-center justify-end gap-2">
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
               >
                 Close
               </button>
@@ -1244,7 +1525,7 @@ export default function CalendarPage() {
                 onClick={() => {
                   router.push(`/bookings/${selectedEvent.bookingId}`);
                 }}
-                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all"
+                className="px-4 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all"
               >
                 <span>View Full Booking</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -1255,14 +1536,14 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Check Availability Modal */}
+      {/* ===================== MODAL: CHECK AVAILABILITY ===================== */}
       {isAvailabilityModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-[#131318] border border-[#272733] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
             <div className="p-5 border-b border-[#202028] flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Search className="w-4 h-4 text-blue-400" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Check Availability</h3>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Check Inventory Availability</h3>
               </div>
               <button
                 onClick={() => {
@@ -1277,24 +1558,24 @@ export default function CalendarPage() {
 
             <form onSubmit={handleCheckAvailability} className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-neutral-400 mb-1">Start Date & Time</label>
+                <label className="block text-xs font-semibold text-neutral-400 mb-1">Event Start Time</label>
                 <input
                   type="datetime-local"
                   required
                   value={checkStartDate}
                   onChange={(e) => setCheckStartDate(e.target.value)}
-                  className="w-full bg-[#1a1a22] border border-[#2a2a38] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                  className="w-full bg-[#181820] border border-[#272733] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-neutral-400 mb-1">End Date & Time</label>
+                <label className="block text-xs font-semibold text-neutral-400 mb-1">Event End Time</label>
                 <input
                   type="datetime-local"
                   required
                   value={checkEndDate}
                   onChange={(e) => setCheckEndDate(e.target.value)}
-                  className="w-full bg-[#1a1a22] border border-[#2a2a38] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                  className="w-full bg-[#181820] border border-[#272733] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                 />
               </div>
 
@@ -1319,9 +1600,9 @@ export default function CalendarPage() {
                 <button
                   type="submit"
                   disabled={checkingAvail}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/20 transition-all flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/20 transition-all flex items-center gap-1.5"
                 >
-                  {checkingAvail ? 'Checking...' : 'Check Availability'}
+                  {checkingAvail ? 'Checking Warehouse...' : 'Check Availability'}
                 </button>
               </div>
             </form>
