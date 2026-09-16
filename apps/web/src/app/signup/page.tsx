@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api';
+import { apiClient, setAuthToken } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
 
@@ -32,13 +32,14 @@ export default function SignupPage() {
     try {
       setLoading(true);
       setError(null);
-      await apiClient.post('/api/v1/auth/register', { 
+      const data = await apiClient.post('/api/v1/auth/register', { 
         businessName,
         name,
         email, 
         password,
         timezone 
       });
+      if (data.sessionToken) setAuthToken(data.sessionToken);
       await refetchSession();
       window.location.href = '/dashboard';
     } catch (e: any) {

@@ -15,15 +15,44 @@ import { AuditFilters, ListAuditEventsResponse } from '../types/audit';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+const TOKEN_KEY = 'tr_session_token';
+
+/** Read the session token stored after login / OAuth callback */
+export function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return sessionStorage.getItem(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY);
+}
+
+/** Persist the session token (localStorage so it survives tab refreshes) */
+export function setAuthToken(token: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(TOKEN_KEY, token);
+  sessionStorage.setItem(TOKEN_KEY, token);
+}
+
+/** Remove the session token on logout */
+export function clearAuthToken(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+}
+
+/** Build common headers, injecting a Bearer token when one is available */
+function authHeaders(extra?: HeadersInit): HeadersInit {
+  const token = getAuthToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
 export const apiClient = {
   get: async (endpoint: string, options: RequestInit = {}) => {
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers: authHeaders(options.headers),
     });
 
     if (!response.ok) {
@@ -39,10 +68,7 @@ export const apiClient = {
       method: 'PATCH',
       ...options,
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers: authHeaders(options.headers),
       body: JSON.stringify(data),
     });
 
@@ -59,10 +85,7 @@ export const apiClient = {
       method: 'POST',
       ...options,
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers: authHeaders(options.headers),
       body: JSON.stringify(data),
     });
 
@@ -79,10 +102,7 @@ export const apiClient = {
       method: 'DELETE',
       ...options,
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers: authHeaders(options.headers),
     });
 
     if (!response.ok) {

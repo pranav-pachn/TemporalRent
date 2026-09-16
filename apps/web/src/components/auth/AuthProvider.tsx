@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { apiClient } from '../../lib/api';
+import { apiClient, clearAuthToken } from '../../lib/api';
 
 type User = {
   id: string;
@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Logout failed:', error);
     }
+    clearAuthToken();
     setUser(null);
     setBusiness(null);
     window.location.href = '/';

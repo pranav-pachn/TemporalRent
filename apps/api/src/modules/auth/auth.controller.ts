@@ -64,13 +64,10 @@ export class AuthController {
 
       const result = await authService.handleGoogleCallback(code);
 
-      res.cookie('tr_session', result.session.token, COOKIE_OPTIONS);
-
-      if (result.isNewUser || !result.user.businessId) {
-        res.redirect(`${FRONTEND_URL}/setup`);
-      } else {
-        res.redirect(`${FRONTEND_URL}/dashboard`);
-      }
+      // Pass token via URL so the frontend can store it as a Bearer token.
+      // This avoids cross-domain cookie issues between Render and Vercel.
+      const next = result.isNewUser || !result.user.businessId ? '/setup' : '/dashboard';
+      res.redirect(`${FRONTEND_URL}/auth/callback?token=${result.session.token}&next=${next}`);
     } catch (error) {
       console.error('OAuth callback error:', error);
       res.redirect(`${FRONTEND_URL}/login?error=callback_failed`);
@@ -193,6 +190,7 @@ export class AuthController {
       // Don't send password hash
       const { passwordHash, ...safeUser } = result.user;
       return res.status(200).json({
+        sessionToken: result.session.token,
         user: safeUser,
         business: result.business,
       });
@@ -220,6 +218,7 @@ export class AuthController {
 
       const { passwordHash, ...safeUser } = result.user;
       return res.status(201).json({
+        sessionToken: result.session.token,
         user: safeUser,
         business: result.business,
       });
