@@ -55,14 +55,26 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       // Neither session nor JWT valid
     }
 
-    res.clearCookie('tr_session');
+    const isProd = process.env.NODE_ENV === 'production';
+    res.clearCookie('tr_session', {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+      path: '/',
+    });
     return res.status(401).json({
       code: 'UNAUTHENTICATED',
       message: 'Invalid or expired session',
     });
   } catch (error) {
     console.error('Auth middleware error:', error);
-    res.clearCookie('tr_session');
+    const isProd = process.env.NODE_ENV === 'production';
+    res.clearCookie('tr_session', {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+      path: '/',
+    });
     return res.status(401).json({
       code: 'UNAUTHENTICATED',
       message: 'Authentication failed',

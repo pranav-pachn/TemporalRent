@@ -22,6 +22,7 @@ import { settingsRouter } from './modules/settings/settings.routes';
 
 export const app = express();
 
+app.set('trust proxy', 1);
 app.use(helmet());
 const allowedOrigins = ['https://temporalrent.vercel.app', 'http://localhost:3000'];
 

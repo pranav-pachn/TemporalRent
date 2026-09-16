@@ -6,10 +6,11 @@ import { prisma } from '../../lib/prisma';
 
 // CSRF State storage via cookies is more robust for dev server restarts than in-memory
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const isProd = process.env.NODE_ENV === 'production';
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  secure: isProd,
+  sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
   path: '/',
   maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
 };
@@ -22,9 +23,9 @@ export class AuthController {
       // Set state in cookie for 10 minutes
       res.cookie('oauth_state', state, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProd,
         maxAge: 10 * 60 * 1000,
-        sameSite: 'lax'
+        sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
       });
 
       const url = getGoogleAuthUrl(state);
@@ -50,7 +51,12 @@ export class AuthController {
       }
       
       // Clear the state cookie
-      res.clearCookie('oauth_state');
+      res.clearCookie('oauth_state', {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+        path: '/',
+      });
 
       if (!code || typeof code !== 'string') {
         return res.status(400).send('No authorization code provided');
@@ -231,7 +237,12 @@ export class AuthController {
     if (token) {
       await authService.logout(token);
     }
-    res.clearCookie('tr_session');
+    res.clearCookie('tr_session', {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+      path: '/',
+    });
     res.status(200).json({ success: true });
   }
 }
