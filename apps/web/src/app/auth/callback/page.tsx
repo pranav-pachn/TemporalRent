@@ -3,10 +3,12 @@
 import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { setAuthToken } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { refetchSession } = useAuth();
 
   useEffect(() => {
     const token = searchParams.get('token');
@@ -20,11 +22,15 @@ function AuthCallbackContent() {
 
     if (token) {
       setAuthToken(token);
-      router.replace(next);
+      // Refetch session so AuthProvider has the user before we navigate
+      refetchSession().then(() => {
+        router.replace(next);
+      });
     } else {
       router.replace('/login?error=missing_token');
     }
-  }, [router, searchParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex flex-col items-center gap-4">
