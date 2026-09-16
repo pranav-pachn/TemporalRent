@@ -7,10 +7,7 @@ import {
   AlertTriangle, 
   Search, 
   Calendar, 
-  ArrowRight, 
   ShieldAlert, 
-  PackageX, 
-  HelpCircle,
   Clock,
   ExternalLink
 } from 'lucide-react';
@@ -18,6 +15,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function DamagePage() {
   const router = useRouter();
@@ -61,33 +60,31 @@ export default function DamagePage() {
   });
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <AlertTriangle className="w-6 h-6 text-red-400" />
-            Damage & Loss Traceability
-          </h1>
-          <p className="text-neutral-400 text-sm mt-1">
-            Operational record of inventory damaged or missing from warehouse fulfillment cycles.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Damage & Loss Traceability"
+        description="Operational record of inventory damaged or missing from warehouse fulfillment cycles"
+        tag={
+          <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded bg-surface-raised border border-border text-text-muted tabular-nums">
+            {reports.length} TOTAL INCIDENTS
+          </span>
+        }
+      />
 
       {/* Filters & Search */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
-        <div className="flex space-x-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+        <div className="flex space-x-1.5">
           {(['ALL', 'DAMAGED', 'MISSING'] as const).map((type) => {
             const isActive = filterType === type;
             return (
               <button
                 key={type}
                 onClick={() => setFilterType(type)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   isActive
-                    ? 'bg-neutral-800 text-white font-semibold border border-white/10'
-                    : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                    ? 'bg-surface-raised text-text font-semibold border border-border-active'
+                    : 'text-text-muted hover:text-text hover:bg-surface-subtle border border-transparent'
                 }`}
               >
                 {type === 'ALL' ? 'All Incidents' : type === 'DAMAGED' ? 'Damaged Items' : 'Missing Items'}
@@ -97,13 +94,13 @@ export default function DamagePage() {
         </div>
 
         <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
           <input
             type="text"
             placeholder="Search item, booking, reason..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 bg-neutral-900 border border-white/10 rounded-lg text-xs text-white placeholder:text-neutral-600 focus:outline-none focus:border-neutral-700"
+            className="w-full pl-9 pr-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-text placeholder:text-text-dim focus:outline-none focus:border-border-active"
           />
         </div>
       </div>
@@ -118,15 +115,15 @@ export default function DamagePage() {
           <ErrorState message={error} onRetry={() => loadReports(filterType)} />
         </div>
       ) : filteredReports.length === 0 ? (
-        <div className="bg-neutral-900 border border-white/5 rounded-2xl py-20 text-center">
-          <ShieldAlert className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
-          <h3 className="text-lg font-medium text-white mb-1">No incidents reported</h3>
-          <p className="text-neutral-400 text-sm">
-            {filterType === 'ALL'
-              ? 'No damages or missing inventory have been recorded.'
-              : `No ${filterType.toLowerCase()} reports found.`}
-          </p>
-        </div>
+        <EmptyState
+          icon={ShieldAlert}
+          title="No incidents reported"
+          description={
+            filterType === 'ALL'
+              ? 'No damages or missing inventory have been recorded in the warehouse.'
+              : `No ${filterType.toLowerCase()} reports found matching your criteria.`
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredReports.map((report) => {
@@ -135,36 +132,36 @@ export default function DamagePage() {
             return (
               <div
                 key={report.id}
-                className="bg-neutral-900 border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-colors flex flex-col justify-between space-y-4"
+                className="bg-surface border border-border rounded-xl p-4 hover:border-border-muted transition-colors flex flex-col justify-between space-y-4"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h2 className="font-semibold text-white text-base">
+                      <h2 className="font-semibold text-text text-sm leading-snug">
                         {report.inventoryItemName}
                       </h2>
                       {report.sku && (
-                        <div className="text-xs text-neutral-500 font-mono mt-0.5">
+                        <div className="text-[11px] text-text-dim font-mono mt-0.5">
                           SKU: {report.sku}
                         </div>
                       )}
                     </div>
                     <span
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider tabular-nums ${
                         isDamaged
-                          ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          ? 'bg-status-danger/10 text-status-danger border border-status-danger/20'
+                          : 'bg-status-warning/10 text-status-warning border border-status-warning/20'
                       }`}
                     >
                       {report.quantity} {isDamaged ? 'DAMAGED' : 'MISSING'}
                     </span>
                   </div>
 
-                  <div className="mt-4 p-3 bg-neutral-950 border border-white/5 rounded-xl space-y-2">
-                    <div className="text-xs text-neutral-300 font-medium leading-relaxed">
-                      "{report.description}"
+                  <div className="mt-3 p-3 bg-surface-raised border border-border rounded-lg space-y-2">
+                    <div className="text-xs text-text-muted font-medium leading-relaxed italic">
+                      &ldquo;{report.description}&rdquo;
                     </div>
-                    <div className="text-[11px] text-neutral-500 flex items-center gap-1.5 pt-1 border-t border-white/5">
+                    <div className="text-[10px] text-text-dim flex items-center gap-1.5 pt-1.5 border-t border-border font-mono tabular-nums">
                       <Clock className="w-3 h-3" />
                       Reported {new Date(report.reportedAt).toLocaleDateString()} at{' '}
                       {new Date(report.reportedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -172,23 +169,23 @@ export default function DamagePage() {
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+                <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
                   <div>
                     {report.bookingName ? (
-                      <div className="text-neutral-400">
-                        Origin: <strong className="text-neutral-200">{report.bookingName}</strong>
+                      <div className="text-text-muted text-[11px] truncate max-w-[170px]">
+                        Origin: <strong className="text-text font-medium">{report.bookingName}</strong>
                       </div>
                     ) : (
-                      <div className="text-neutral-500 italic">No linked booking</div>
+                      <div className="text-text-dim text-[11px] italic">No linked booking</div>
                     )}
                   </div>
 
                   {report.bookingId && (
                     <Link
                       href={`/bookings/${report.bookingId}`}
-                      className="px-2.5 py-1 bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white rounded-md flex items-center gap-1 transition-colors"
+                      className="px-2 py-1 bg-surface-raised hover:bg-surface-active text-text-muted hover:text-text border border-border text-[11px] rounded flex items-center gap-1 transition-colors"
                     >
-                      View Booking
+                      <span>Booking</span>
                       <ExternalLink className="w-3 h-3" />
                     </Link>
                   )}

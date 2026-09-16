@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { PackageVersion } from '@/types/package';
-import { PackageStatusBadge } from './PackageStatusBadge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
@@ -39,21 +39,21 @@ export function PackageVersionsTable({
 
   return (
     <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm">
-      <div className="px-6 py-5 border-b border-border flex justify-between items-center bg-background-dark/30">
-        <h3 className="font-semibold text-text">Version History</h3>
-        <span className="text-xs text-text-muted">{versions.length} versions total</span>
+      <div className="px-4 py-3 border-b border-border flex justify-between items-center bg-surface-subtle">
+        <h3 className="text-xs font-semibold text-text uppercase tracking-wider">Version History</h3>
+        <span className="text-[11px] font-mono text-text-muted tabular-nums">{versions.length} versions total</span>
       </div>
       
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-background-dark text-text-muted border-b border-border">
+        <table className="w-full text-left text-xs whitespace-nowrap">
+          <thead className="bg-surface-subtle text-text-muted border-b border-border font-semibold uppercase tracking-wider text-[10px]">
             <tr>
-              <th scope="col" className="px-6 py-4 font-semibold">Version</th>
-              <th scope="col" className="px-6 py-4 font-semibold">Status</th>
-              <th scope="col" className="px-6 py-4 font-semibold">Components</th>
-              <th scope="col" className="px-6 py-4 font-semibold">Bookings (Historical)</th>
-              <th scope="col" className="px-6 py-4 font-semibold">Created</th>
-              <th scope="col" className="px-6 py-4 font-semibold text-right">Actions</th>
+              <th scope="col" className="px-4 py-3">Version</th>
+              <th scope="col" className="px-4 py-3">Status</th>
+              <th scope="col" className="px-4 py-3">Bill of Materials</th>
+              <th scope="col" className="px-4 py-3 text-right">Bookings</th>
+              <th scope="col" className="px-4 py-3">Created</th>
+              <th scope="col" className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -61,44 +61,44 @@ export function PackageVersionsTable({
               const isPublishing = publishing === v.id;
               
               return (
-                <tr key={v.id} className="hover:bg-background-dark/30 transition-colors">
-                  <td className="px-6 py-4">
-                    <span className="font-semibold text-text">v{v.versionNumber}</span>
+                <tr key={v.id} className="hover:bg-surface-raised transition-colors">
+                  <td className="px-4 py-3 font-mono font-bold text-text">
+                    v{v.versionNumber}
                   </td>
-                  <td className="px-6 py-4">
-                    <PackageStatusBadge status={v.status} />
+                  <td className="px-4 py-3">
+                    <StatusBadge status={v.status} size="sm" />
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex flex-col space-y-1">
                       {v.packageComponents.length === 0 ? (
-                        <span className="text-text-muted italic text-xs">Empty package</span>
+                        <span className="text-text-dim italic text-xs">Empty BOM</span>
                       ) : (
                         v.packageComponents.map(c => (
-                          <div key={c.id} className="text-sm">
-                            <span className="font-medium text-text">{c.quantity}x</span>{' '}
+                          <div key={c.id} className="text-xs">
+                            <span className="font-mono font-bold text-text tabular-nums">{c.quantity}×</span>{' '}
                             <span className="text-text-muted">{c.inventoryItem.name}</span>
                           </div>
                         ))
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="text-text-muted">{v.bookingCount} bookings</span>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums text-text-muted">
+                    {v.bookingCount} bookings
                   </td>
-                  <td className="px-6 py-4 text-text-muted">
+                  <td className="px-4 py-3 text-text-muted font-mono text-[11px] tabular-nums">
                     {format(new Date(v.createdAt), 'MMM d, yyyy h:mm a')}
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-4 py-3 text-right">
                     {v.status === 'DRAFT' && (
                       <button
                         onClick={() => handlePublish(v.id)}
                         disabled={isPublishing}
-                        className="inline-flex items-center justify-center px-3 py-1.5 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm text-xs disabled:opacity-50"
+                        className="inline-flex items-center justify-center px-3 py-1 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover transition-colors shadow-sm text-xs disabled:opacity-50"
                       >
                         {isPublishing ? (
-                          <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                          <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
                         ) : (
-                          <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                          <CheckCircle className="w-3.5 h-3.5 mr-1" />
                         )}
                         Publish
                       </button>

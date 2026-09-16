@@ -6,14 +6,22 @@ import { apiClient } from '@/lib/api';
 import { BookingDetailDTO } from '@/types/bookings';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { ArrowLeft, Package, Calendar, Clock, User, Hash, Trash2 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ArrowLeft, Package, Calendar, Clock, User, Hash, Trash2, ShieldCheck, CheckCircle2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { format } from 'date-fns';
 
 export default function BookingDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [booking, setBooking] = useState<BookingDetailDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Cancellation modal state
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const loadBooking = useCallback(async () => {
     try {
@@ -37,28 +45,32 @@ export default function BookingDetailPage({ params }: { params: { id: string } }
     loadBooking();
   }, [loadBooking]);
 
-  const handleCancelBooking = async () => {
+  const handleConfirmCancel = async () => {
     if (!booking) return;
-    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
     try {
-      await apiClient.cancelBooking(booking.id, crypto.randomUUID(), 'Cancelled via dashboard');
-      loadBooking(); // Reload to show updated status
+      setIsCancelling(true);
+      await apiClient.cancelBooking(booking.id, crypto.randomUUID(), 'Cancelled via booking detail');
+      setIsCancelOpen(false);
+      loadBooking();
     } catch (err: any) {
       alert(err.message || 'Failed to cancel booking');
+    } finally {
+      setIsCancelling(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="p-6 max-w-4xl mx-auto">
-        <LoadingState />
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
+        <div className="h-10 bg-surface border border-border rounded-lg w-48 animate-pulse" />
+        <LoadingState variant="page" />
       </div>
     );
   }
 
   if (error || !booking) {
     return (
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
         <ErrorState 
           message={error || 'Booking not found'} 
           onRetry={loadBooking} 
@@ -67,116 +79,162 @@ export default function BookingDetailPage({ params }: { params: { id: string } }
     );
   }
 
+  const startDate = new Date(booking.eventStart);
+  const endDate = new Date(booking.eventEnd);
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-24 p-6">
-      <div className="flex items-center space-x-4">
-        <Link href="/bookings" className="p-2 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div className="flex-1 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-semibold text-white tracking-tight">{booking.eventName}</h1>
-            <p className="text-neutral-500 text-sm mt-0.5">Booking #{booking.id.substring(0, 8)}</p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 font-medium text-sm rounded-lg border border-blue-500/20 uppercase tracking-wider">
-              {booking.status}
-            </span>
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6 pb-20">
+      <PageHeader
+        title={booking.eventName}
+        description={`Reservation #${booking.id.substring(0, 8)} · Created for ${booking.customer?.name || 'Walk-in Client'}`}
+        tag={<StatusBadge status={booking.status} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <Link
+              href="/bookings"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border hover:bg-surface-raised text-text-muted hover:text-text text-xs font-medium rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
+            </Link>
+
+            {booking.status === 'DRAFT' && (
+              <Link
+                href={`/bookings/${booking.id}/preview`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-status-safe text-white hover:bg-emerald-600 text-xs font-semibold rounded-lg shadow-sm transition-colors"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Verify & Confirm</span>
+              </Link>
+            )}
+
             {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
               <button
-                onClick={handleCancelBooking}
-                className="flex items-center px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-medium text-sm rounded-lg border border-red-500/20 transition-colors"
-                title="Cancel Booking"
+                onClick={() => setIsCancelOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-status-danger/10 hover:bg-status-danger/20 text-status-danger border border-status-danger/30 text-xs font-medium rounded-lg transition-colors"
               >
-                <Trash2 className="w-4 h-4 mr-1.5" />
-                Cancel
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Cancel</span>
               </button>
             )}
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6 space-y-4">
-          <div className="flex items-center text-neutral-400 font-medium uppercase tracking-wider text-xs mb-2">
-            <User className="w-4 h-4 mr-2" /> Customer Information
+      {/* Primary Task Visual: Temporal Event Window + Customer Details */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Customer Information Card */}
+        <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="flex items-center gap-2 text-[10px] font-semibold text-text-dim uppercase tracking-wider mb-2">
+            <User className="w-3.5 h-3.5 text-primary" />
+            <span>Customer Information</span>
           </div>
           <div>
-            <div className="text-white font-medium">{booking.customer?.name || 'Walk-in Customer'}</div>
-            {booking.customer?.email && <div className="text-neutral-500 text-sm mt-1">{booking.customer.email}</div>}
-            {booking.customer?.phone && <div className="text-neutral-500 text-sm mt-1">{booking.customer.phone}</div>}
+            <div className="text-sm font-semibold text-text">{booking.customer?.name || 'Walk-in Client'}</div>
+            {booking.customer?.email && (
+              <div className="text-xs text-text-muted mt-0.5 font-mono">{booking.customer.email}</div>
+            )}
+            {booking.customer?.phone && (
+              <div className="text-xs text-text-muted mt-0.5 font-mono">{booking.customer.phone}</div>
+            )}
           </div>
         </div>
 
-        <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6 space-y-4">
-          <div className="flex items-center text-neutral-400 font-medium uppercase tracking-wider text-xs mb-2">
-            <Calendar className="w-4 h-4 mr-2" /> Operational Period
+        {/* Operational Period Card */}
+        <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="flex items-center gap-2 text-[10px] font-semibold text-text-dim uppercase tracking-wider mb-2">
+            <Calendar className="w-3.5 h-3.5 text-primary" />
+            <span>Temporal Commitment Window</span>
           </div>
-          <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
-              <div className="text-neutral-500 text-xs uppercase tracking-wider mb-1">Event Start</div>
-              <div className="text-white font-medium">
-                {new Date(booking.eventStart).toLocaleDateString()} at {new Date(booking.eventStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </div>
+              <span className="text-[10px] text-text-dim uppercase font-medium block">Event Start</span>
+              <span className="font-mono text-text font-semibold tabular-nums mt-0.5 block">
+                {format(startDate, 'MMM d, yyyy')}
+              </span>
+              <span className="text-[11px] text-text-muted font-mono">{format(startDate, 'h:mm a')}</span>
             </div>
             <div>
-              <div className="text-neutral-500 text-xs uppercase tracking-wider mb-1">Event End</div>
-              <div className="text-white font-medium">
-                {new Date(booking.eventEnd).toLocaleDateString()} at {new Date(booking.eventEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </div>
+              <span className="text-[10px] text-text-dim uppercase font-medium block">Event End</span>
+              <span className="font-mono text-text font-semibold tabular-nums mt-0.5 block">
+                {format(endDate, 'MMM d, yyyy')}
+              </span>
+              <span className="text-[11px] text-text-muted font-mono">{format(endDate, 'h:mm a')}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-white/5 flex items-center bg-neutral-950">
-          <Package className="w-4 h-4 mr-2 text-neutral-400" />
-          <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Requested Items</h2>
+      {/* Requested Items (Bill of Materials) */}
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
+        <div className="px-4 py-3 border-b border-border bg-surface-subtle flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Package className="w-3.5 h-3.5 text-primary" />
+            <h2 className="text-xs font-semibold text-text uppercase tracking-wider">Requested Line Items</h2>
+          </div>
+          <span className="text-[10px] font-mono text-text-muted tabular-nums">
+            {booking.bookingLines?.length || 0} ITEMS
+          </span>
         </div>
-        <div className="divide-y divide-white/5">
+
+        <div className="divide-y divide-border/60">
           {booking.bookingLines?.map((line) => (
-            <div key={line.id} className="p-4 flex justify-between items-center hover:bg-white/5 transition-colors">
+            <div key={line.id} className="p-3.5 flex justify-between items-center hover:bg-surface-raised transition-colors">
               <div>
-                <div className="text-white font-medium">
+                <div className="text-xs font-semibold text-text">
                   {line.type === 'PACKAGE' 
                     ? line.packageVersion?.package?.name || 'Package' 
                     : line.inventoryItem?.name || 'Item'}
                 </div>
-                <div className="text-neutral-500 text-xs mt-1 uppercase tracking-wider">{line.type}</div>
+                <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider mt-0.5">
+                  {line.type}
+                </div>
               </div>
-              <div className="text-white font-medium bg-neutral-800 px-3 py-1 rounded-lg border border-white/5">
+              <div className="text-xs font-mono font-bold text-text bg-surface-raised px-2.5 py-1 rounded border border-border tabular-nums">
                 {line.quantity} units
               </div>
             </div>
           ))}
           {(!booking.bookingLines || booking.bookingLines.length === 0) && (
-            <div className="p-8 text-center text-neutral-500 text-sm">No items requested for this booking.</div>
+            <div className="p-6 text-center text-text-muted text-xs">No items requested for this booking.</div>
           )}
         </div>
       </div>
 
+      {/* Inventory Demands Breakdown */}
       {booking.bookingItemDemands && booking.bookingItemDemands.length > 0 && (
-        <div className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-white/5 flex items-center bg-neutral-950">
-            <Hash className="w-4 h-4 mr-2 text-neutral-400" />
-            <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Inventory Demand & Commitments</h2>
+        <div className="bg-surface border border-border rounded-lg overflow-hidden">
+          <div className="px-4 py-3 border-b border-border bg-surface-subtle flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Hash className="w-3.5 h-3.5 text-primary" />
+              <h2 className="text-xs font-semibold text-text uppercase tracking-wider">
+                Physical Inventory Demanded (Atomic Units)
+              </h2>
+            </div>
+            <span className="text-[10px] font-mono text-text-muted tabular-nums">
+              {booking.bookingItemDemands.length} ALLOCATIONS
+            </span>
           </div>
-          <div className="divide-y divide-white/5">
+
+          <div className="divide-y divide-border/60">
             {booking.bookingItemDemands.map((demand) => (
-              <div key={demand.id} className="p-4 flex justify-between items-center hover:bg-white/5 transition-colors">
+              <div key={demand.id} className="p-3.5 flex justify-between items-center hover:bg-surface-raised transition-colors">
                 <div>
-                  <div className="text-white font-medium">
+                  <div className="text-xs font-semibold text-text">
                     {demand.inventoryItem?.name || 'Inventory Item'}
                   </div>
                   {demand.inventoryItem?.sku && (
-                    <div className="text-neutral-500 text-xs mt-0.5 uppercase tracking-wider">SKU: {demand.inventoryItem.sku}</div>
+                    <div className="text-[10px] font-mono text-text-muted mt-0.5 tabular-nums">
+                      SKU: {demand.inventoryItem.sku}
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center space-x-3">
-                  <span className="text-amber-400 text-xs uppercase tracking-wider font-medium">Committed</span>
-                  <div className="text-white font-medium bg-neutral-800 px-3 py-1 rounded-lg border border-white/5">
-                    {demand.quantityDemanded} committed
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[10px] font-semibold text-status-warning uppercase tracking-wider">
+                    Committed
+                  </span>
+                  <div className="text-xs font-mono font-bold text-text bg-surface-raised px-2.5 py-1 rounded border border-border tabular-nums">
+                    {demand.quantityDemanded} units
                   </div>
                 </div>
               </div>
@@ -185,27 +243,36 @@ export default function BookingDetailPage({ params }: { params: { id: string } }
         </div>
       )}
 
+      {/* Active Temporal Locks (Reservations) */}
       {booking.inventoryReservations && booking.inventoryReservations.length > 0 && (
-        <div className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-white/5 flex items-center bg-neutral-950">
-            <Clock className="w-4 h-4 mr-2 text-neutral-400" />
-            <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Active Reservations (Temporal Locks)</h2>
+        <div className="bg-surface border border-border rounded-lg overflow-hidden">
+          <div className="px-4 py-3 border-b border-border bg-surface-subtle flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-status-safe" />
+              <h2 className="text-xs font-semibold text-text uppercase tracking-wider">
+                Active Temporal Locks (Inventory Guaranteed)
+              </h2>
+            </div>
+            <span className="text-[10px] font-mono text-status-safe font-semibold">
+              PROTECTED
+            </span>
           </div>
-          <div className="divide-y divide-white/5">
+
+          <div className="divide-y divide-border/60">
             {booking.inventoryReservations.map((res) => (
-              <div key={res.id} className="p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center hover:bg-white/5 transition-colors gap-3">
+              <div key={res.id} className="p-3.5 flex justify-between items-center hover:bg-surface-raised transition-colors">
                 <div>
-                  <div className="text-white font-medium">
+                  <div className="text-xs font-semibold text-text">
                     {res.inventoryItem?.name || 'Item'}
                   </div>
-                  <div className="text-neutral-500 text-xs mt-1 uppercase tracking-wider">Reservation #{res.id.substring(0, 8)}</div>
+                  <div className="text-[10px] font-mono text-text-dim mt-0.5 tabular-nums">
+                    Lock #{res.id.substring(0, 8)}
+                  </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded border border-emerald-500/20 uppercase tracking-wider">
-                    {res.status}
-                  </span>
-                  <div className="text-white font-medium bg-neutral-800 px-3 py-1 rounded-lg border border-white/5">
-                    {res.quantity} reserved
+                <div className="flex items-center gap-2.5">
+                  <StatusBadge status={res.status} size="sm" />
+                  <div className="text-xs font-mono font-bold text-text bg-surface-raised px-2.5 py-1 rounded border border-border tabular-nums">
+                    {res.quantity} locked
                   </div>
                 </div>
               </div>
@@ -213,6 +280,19 @@ export default function BookingDetailPage({ params }: { params: { id: string } }
           </div>
         </div>
       )}
+
+      {/* Destructive Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={isCancelOpen}
+        title="Cancel Reservation?"
+        description="Cancelling this booking will immediately release all locked physical inventory reservations back into the pool. This cannot be undone."
+        confirmLabel="Release & Cancel Booking"
+        cancelLabel="Keep Reservation"
+        isDestructive={true}
+        isLoading={isCancelling}
+        onConfirm={handleConfirmCancel}
+        onCancel={() => setIsCancelOpen(false)}
+      />
     </div>
   );
 }

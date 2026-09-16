@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 import { AuditEventDTO, AuditAction, AuditEntityType } from '@/types/audit';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { formatDistanceToNow, format } from 'date-fns';
 import Link from 'next/link';
 import { 
@@ -15,7 +16,7 @@ import {
   Monitor,
   ChevronLeft,
   ChevronRight,
-  Filter
+  ShieldAlert
 } from 'lucide-react';
 
 export default function AuditPage() {
@@ -73,26 +74,26 @@ export default function AuditPage() {
     setPage(1);
   };
 
-  const renderActionLabel = (action: AuditAction) => {
-    const map: Record<AuditAction, { label: string; color: string }> = {
-      CREATE: { label: 'Created', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
-      UPDATE: { label: 'Updated', color: 'text-neutral-300 bg-neutral-500/10 border-neutral-500/20' },
-      DELETE: { label: 'Deleted', color: 'text-neutral-300 bg-neutral-500/10 border-neutral-500/20' },
-      CONFIRM: { label: 'Confirmed', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
-      CANCEL: { label: 'Cancelled', color: 'text-red-400 bg-red-500/10 border-red-500/20' },
-      RESCHEDULE: { label: 'Rescheduled', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
-      START_PICKING: { label: 'Started Picking', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
-      DISPATCH: { label: 'Dispatched', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
-      RETURN: { label: 'Returned', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
-      DAMAGE: { label: 'Damage Reported', color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
-      OVERRIDE: { label: 'Override', color: 'text-red-500 bg-red-500/10 border-red-500/20 font-bold' },
+  const renderActionBadge = (action: AuditAction) => {
+    const map: Record<AuditAction, { label: string; style: string }> = {
+      CREATE: { label: 'Created', style: 'text-status-info bg-status-info/10 border-status-info/20' },
+      UPDATE: { label: 'Updated', style: 'text-text-muted bg-surface-raised border-border' },
+      DELETE: { label: 'Deleted', style: 'text-status-danger bg-status-danger/10 border-status-danger/20' },
+      CONFIRM: { label: 'Confirmed', style: 'text-status-safe bg-status-safe/10 border-status-safe/20' },
+      CANCEL: { label: 'Cancelled', style: 'text-status-danger bg-status-danger/10 border-status-danger/20' },
+      RESCHEDULE: { label: 'Rescheduled', style: 'text-status-info bg-status-info/10 border-status-info/20' },
+      START_PICKING: { label: 'Picking Started', style: 'text-status-warning bg-status-warning/10 border-status-warning/20' },
+      DISPATCH: { label: 'Dispatched', style: 'text-status-warning bg-status-warning/10 border-status-warning/20' },
+      RETURN: { label: 'Returned', style: 'text-status-safe bg-status-safe/10 border-status-safe/20' },
+      DAMAGE: { label: 'Damage Reported', style: 'text-status-danger bg-status-danger/10 border-status-danger/20 font-semibold' },
+      OVERRIDE: { label: 'Manual Override', style: 'text-status-danger bg-status-danger/15 border-status-danger/30 font-bold' },
     };
 
-    const config = map[action] || { label: action, color: 'text-neutral-400 bg-neutral-800 border-neutral-700' };
+    const config = map[action] || { label: action, style: 'text-text-muted bg-surface-raised border-border' };
 
     return (
-      <span className={`px-2.5 py-0.5 rounded text-xs border ${config.color} uppercase tracking-wider`}>
-        {action === 'OVERRIDE' && <AlertTriangle className="inline w-3 h-3 mr-1 -mt-0.5" />}
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider border ${config.style}`}>
+        {action === 'OVERRIDE' && <AlertTriangle className="inline w-3 h-3 mr-1" />}
         {config.label}
       </span>
     );
@@ -107,12 +108,12 @@ export default function AuditPage() {
       
       if (href) {
         return (
-          <Link href={href} className="text-blue-400 hover:text-blue-300 transition-colors font-medium">
-            {text} →
+          <Link href={href} className="text-text hover:text-primary transition-colors font-medium underline underline-offset-2 decoration-border hover:decoration-primary font-mono text-xs">
+            {text}
           </Link>
         );
       }
-      return <span className="text-neutral-300 font-medium">{label}</span>;
+      return <span className="text-text-muted font-medium font-mono text-xs">{label} #{displayId}</span>;
     };
 
     // If it's related to a booking, prioritize linking to the booking context
@@ -122,17 +123,16 @@ export default function AuditPage() {
 
     switch (entityType) {
       case 'INVENTORY_ITEM':
-        return formatEntity('Inventory Item', entityId, `/inventory/${entityId}`);
+        return formatEntity('Item', entityId, `/inventory/${entityId}`);
       case 'DAMAGE_REPORT':
-        return formatEntity('Damage Report', entityId);
+        return formatEntity('Damage Report', entityId, '/damage');
       case 'DISPATCH':
         return formatEntity('Dispatch', entityId, '/dispatch');
       case 'RETURN':
         return formatEntity('Return', entityId, '/returns');
       default:
-        // Generic fallback with nice casing
         const fallbackLabel = entityType.replace(/_/g, ' ').replace(/\w\S*/g, (w) => (w.replace(/^\w/, (c) => c.toUpperCase())));
-        return <span className="text-neutral-300 font-medium">{fallbackLabel}</span>;
+        return <span className="text-text font-medium text-xs">{fallbackLabel}</span>;
     }
   };
 
@@ -140,11 +140,11 @@ export default function AuditPage() {
     if (event.actor) {
       return (
         <div className="flex flex-col">
-          <span className="text-white font-medium text-sm flex items-center gap-1.5">
-            <UserIcon className="w-4 h-4 text-neutral-400" />
+          <span className="text-text font-medium text-xs flex items-center gap-1.5">
+            <UserIcon className="w-3.5 h-3.5 text-text-dim" />
             {event.actor.name || 'User'}
           </span>
-          {event.actor.email && <span className="text-neutral-400 text-xs ml-5.5">{event.actor.email}</span>}
+          {event.actor.email && <span className="text-text-dim text-[11px] ml-5">{event.actor.email}</span>}
         </div>
       );
     }
@@ -152,46 +152,46 @@ export default function AuditPage() {
     if (event.userId) {
       return (
         <div className="flex flex-col">
-          <span className="text-white font-medium text-sm flex items-center gap-1.5">
-            <UserIcon className="w-4 h-4 text-neutral-400" />
+          <span className="text-text font-medium text-xs flex items-center gap-1.5">
+            <UserIcon className="w-3.5 h-3.5 text-text-dim" />
             User
           </span>
-          <span className="text-neutral-500 text-xs ml-5.5 font-mono">{event.userId.split('-')[0]}...</span>
+          <span className="text-text-dim text-[11px] ml-5 font-mono">{event.userId.split('-')[0]}...</span>
         </div>
       );
     }
 
     return (
       <div className="flex flex-col">
-        <span className="text-neutral-300 font-medium text-sm flex items-center gap-1.5">
-          <Monitor className="w-4 h-4 text-neutral-500" />
-          System
+        <span className="text-text-muted font-medium text-xs flex items-center gap-1.5">
+          <Monitor className="w-3.5 h-3.5 text-text-dim" />
+          System Engine
         </span>
       </div>
     );
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2 uppercase">
-          <History className="w-6 h-6 text-blue-500" />
-          Audit Log
-        </h1>
-        <p className="text-neutral-400 text-sm mt-1">
-          Immutable operational history
-        </p>
-      </div>
+      <PageHeader
+        title="Audit & Operational Log"
+        description="Immutable chronological log of inventory reservations, temporal locks, dispatch events, and manual overrides"
+        tag={
+          <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded bg-surface-raised border border-border text-text-muted tabular-nums">
+            IMMUTABLE LEDGER
+          </span>
+        }
+      />
 
       {/* Filters Bar */}
-      <div className="bg-surface border border-white/5 rounded-xl p-4 flex flex-wrap gap-4 items-end">
-        <div className="flex-1 min-w-[150px]">
-          <label className="block text-xs font-medium text-neutral-400 mb-1.5">Action</label>
+      <div className="bg-surface border border-border rounded-xl p-4 flex flex-wrap gap-3 items-end text-xs">
+        <div className="flex-1 min-w-[140px]">
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-1.5">Action</label>
           <select 
             value={actionFilter} 
             onChange={(e) => { setActionFilter(e.target.value as AuditAction); setPage(1); }}
-            className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            className="w-full bg-surface-raised border border-border rounded-lg px-3 py-1.5 text-xs text-text focus:outline-none focus:border-border-active"
           >
             <option value="">All Actions</option>
             {['CREATE', 'UPDATE', 'DELETE', 'CONFIRM', 'CANCEL', 'RESCHEDULE', 'START_PICKING', 'DISPATCH', 'RETURN', 'DAMAGE', 'OVERRIDE'].map(a => (
@@ -200,12 +200,12 @@ export default function AuditPage() {
           </select>
         </div>
         
-        <div className="flex-1 min-w-[150px]">
-          <label className="block text-xs font-medium text-neutral-400 mb-1.5">Entity Type</label>
+        <div className="flex-1 min-w-[140px]">
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-1.5">Entity Type</label>
           <select 
             value={entityTypeFilter} 
             onChange={(e) => { setEntityTypeFilter(e.target.value as AuditEntityType); setPage(1); }}
-            className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            className="w-full bg-surface-raised border border-border rounded-lg px-3 py-1.5 text-xs text-text focus:outline-none focus:border-border-active"
           >
             <option value="">All Entities</option>
             {['BUSINESS', 'USER', 'CUSTOMER', 'INVENTORY_ITEM', 'PACKAGE', 'PACKAGE_VERSION', 'BOOKING', 'DISPATCH', 'RETURN', 'DAMAGE_REPORT'].map(e => (
@@ -214,114 +214,113 @@ export default function AuditPage() {
           </select>
         </div>
 
-        <div className="flex-1 min-w-[150px]">
-          <label className="block text-xs font-medium text-neutral-400 mb-1.5">From Date</label>
+        <div className="flex-1 min-w-[140px]">
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-1.5">From Date</label>
           <input 
             type="date" 
             value={dateFrom} 
             onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-            className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 [color-scheme:dark]"
+            className="w-full bg-surface-raised border border-border rounded-lg px-3 py-1.5 text-xs text-text focus:outline-none focus:border-border-active [color-scheme:dark]"
           />
         </div>
 
-        <div className="flex-1 min-w-[150px]">
-          <label className="block text-xs font-medium text-neutral-400 mb-1.5">To Date</label>
+        <div className="flex-1 min-w-[140px]">
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-1.5">To Date</label>
           <input 
             type="date" 
             value={dateTo} 
             onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-            className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 [color-scheme:dark]"
+            className="w-full bg-surface-raised border border-border rounded-lg px-3 py-1.5 text-xs text-text focus:outline-none focus:border-border-active [color-scheme:dark]"
           />
         </div>
 
         <button 
           onClick={resetFilters}
-          className="h-[38px] px-4 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-medium transition-colors border border-white/10 flex items-center gap-2"
+          className="h-[32px] px-3 bg-surface-raised hover:bg-surface-active text-text-muted hover:text-text rounded-lg text-xs font-medium transition-colors border border-border flex items-center gap-1.5"
         >
-          <X className="w-4 h-4" />
+          <X className="w-3.5 h-3.5" />
           Reset
         </button>
       </div>
 
       {/* Main Content */}
-      <div className="bg-surface border border-white/5 rounded-xl overflow-hidden relative min-h-[400px]">
+      <div className="bg-surface border border-border rounded-xl overflow-hidden relative min-h-[360px]">
         {isLoading ? (
-          <div className="p-6 space-y-6">
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="flex gap-4">
-                <div className="w-48 h-10 bg-white/5 rounded animate-pulse" />
+          <div className="p-6 space-y-4">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="flex gap-4 items-center">
+                <div className="w-40 h-8 bg-surface-raised rounded animate-pulse" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-5 w-32 bg-white/5 rounded animate-pulse" />
-                  <div className="h-4 w-48 bg-white/5 rounded animate-pulse" />
+                  <div className="h-4 w-32 bg-surface-raised rounded animate-pulse" />
+                  <div className="h-3 w-48 bg-surface-raised rounded animate-pulse" />
                 </div>
-                <div className="w-24 h-4 bg-white/5 rounded animate-pulse mt-1" />
+                <div className="w-24 h-4 bg-surface-raised rounded animate-pulse" />
               </div>
             ))}
           </div>
         ) : error ? (
           <div className="p-12 flex flex-col items-center justify-center text-center h-full">
-            <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
-            <h3 className="text-lg font-medium text-white mb-2 uppercase tracking-wide">Unable to Load Audit Log</h3>
-            <p className="text-neutral-400 max-w-md mb-6">{error}</p>
+            <AlertTriangle className="w-10 h-10 text-status-danger mb-3" />
+            <h3 className="text-sm font-semibold text-text mb-1">Unable to Load Audit Log</h3>
+            <p className="text-text-muted text-xs max-w-md mb-4">{error}</p>
             <button 
               onClick={loadEvents}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors"
+              className="px-3.5 py-1.5 bg-surface-raised hover:bg-surface-active border border-border text-text rounded-lg text-xs font-medium transition-colors"
             >
               Retry
             </button>
           </div>
         ) : events.length === 0 ? (
-          <div className="p-12 flex flex-col items-center justify-center text-center h-[400px]">
-            <Search className="w-12 h-12 text-neutral-600 mb-4" />
-            <h3 className="text-lg font-medium text-white mb-2 uppercase tracking-wide">No Audit Events</h3>
-            <p className="text-neutral-400 max-w-md mb-6">No events match the selected filters.</p>
-            {(actionFilter || entityTypeFilter || dateFrom || dateTo) && (
-              <button 
-                onClick={resetFilters}
-                className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium transition-colors"
-              >
-                Clear Filters
-              </button>
-            )}
-          </div>
+          <EmptyState
+            icon={History}
+            title="No Audit Events Found"
+            description="No logged operational events match the selected filters."
+            action={
+              (actionFilter || entityTypeFilter || dateFrom || dateTo) ? (
+                <button 
+                  onClick={resetFilters}
+                  className="px-3.5 py-1.5 bg-surface-raised hover:bg-surface-active border border-border text-text rounded-lg text-xs font-medium transition-colors"
+                >
+                  Clear Filters
+                </button>
+              ) : undefined
+            }
+          />
         ) : (
-          <div className="divide-y divide-white/5">
+          <div className="divide-y divide-border">
             {events.map((event) => (
-              <div key={event.id} className="p-5 flex flex-col sm:flex-row sm:items-start gap-4 hover:bg-white/[0.02] transition-colors group">
+              <div key={event.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-surface-subtle/50 transition-colors group text-xs">
                 {/* Actor column */}
-                <div className="w-full sm:w-48 flex-shrink-0 pt-1">
+                <div className="w-full sm:w-44 flex-shrink-0">
                   {renderActor(event)}
                 </div>
 
                 {/* Event Details */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    {renderActionLabel(event.action)}
-                  </div>
-                  
-                  <div className="text-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    {renderActionBadge(event.action)}
+                    <span className="text-text-dim text-[11px]">&middot;</span>
                     {renderEntityLink(event)}
                   </div>
 
                   {event.action === 'OVERRIDE' && event.reason && (
-                    <div className="mt-3 p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
-                      <span className="text-xs font-semibold text-red-400 uppercase tracking-wider block mb-1">Reason:</span>
-                      <p className="text-sm text-neutral-300">{event.reason}</p>
+                    <div className="mt-2 p-2.5 bg-status-danger/10 border border-status-danger/25 rounded-lg text-xs">
+                      <span className="text-[10px] font-mono font-semibold text-status-danger uppercase tracking-wider block mb-0.5">Override Justification:</span>
+                      <p className="text-text-muted">{event.reason}</p>
                     </div>
                   )}
                   
-                  {/* Optional: if there's generic reason not an override, we can also show it nicely */}
                   {event.action !== 'OVERRIDE' && event.reason && (
-                    <div className="mt-2 text-sm text-neutral-400 italic">
-                      "{event.reason}"
+                    <div className="text-[11px] text-text-dim italic mt-0.5">
+                      &ldquo;{event.reason}&rdquo;
                     </div>
                   )}
                 </div>
 
                 {/* Timestamp */}
-                <div className="w-full sm:w-32 flex-shrink-0 sm:text-right pt-1">
+                <div className="w-full sm:w-36 flex-shrink-0 sm:text-right">
                   <span 
-                    className="text-sm text-neutral-400 cursor-help"
+                    className="text-[11px] text-text-muted font-mono tabular-nums cursor-help"
                     title={format(new Date(event.createdAt), 'MMM d, yyyy \at h:mm:ss a')}
                   >
                     {formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}
@@ -335,27 +334,27 @@ export default function AuditPage() {
 
       {/* Pagination */}
       {!isLoading && !error && events.length > 0 && (
-        <div className="flex items-center justify-between bg-surface border border-white/5 rounded-xl p-4">
+        <div className="flex items-center justify-between bg-surface border border-border rounded-xl p-3 text-xs">
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-neutral-300 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors rounded border border-border bg-surface-raised"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-3.5 h-3.5" />
             Previous
           </button>
           
-          <span className="text-sm text-neutral-400">
-            Page <span className="text-white font-medium">{page}</span> of <span className="text-white font-medium">{totalPages || 1}</span>
+          <span className="text-text-muted font-mono tabular-nums">
+            Page <strong className="text-text">{page}</strong> of <strong className="text-text">{totalPages || 1}</strong>
           </span>
 
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-neutral-300 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors rounded border border-border bg-surface-raised"
           >
             Next
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
       )}

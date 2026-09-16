@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
-import { AvailabilityResult, AvailabilityItemResult, BookingDTO } from '@/types/bookings';
+import { AvailabilityResult, BookingDTO } from '@/types/bookings';
 import { InventoryItem, InventoryReservation } from '@/types/inventory';
-import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { ConflictModal } from '@/components/bookings/ConflictModal';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 export default function BookingPreviewPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -21,7 +23,6 @@ export default function BookingPreviewPage({ params }: { params: { id: string } 
   
   const [availability, setAvailability] = useState<AvailabilityResult | null>(null);
   const [inventoryMap, setInventoryMap] = useState<Record<string, InventoryItem>>({});
-  const [conflictsMap, setConflictsMap] = useState<Record<string, InventoryReservation[]>>({});
   
   const [booking, setBooking] = useState<BookingDTO | null>(null);
   const [status, setStatus] = useState<'DRAFT' | 'QUOTED' | 'CONFIRMED'>('DRAFT');
@@ -99,37 +100,37 @@ export default function BookingPreviewPage({ params }: { params: { id: string } 
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
-        <LoadingState />
+      <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+        <div className="h-10 bg-surface border border-border rounded-lg w-48 animate-pulse" />
+        <LoadingState variant="page" />
       </div>
     );
   }
 
   if (error || !availability) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6">
         <ErrorState message={error || 'Failed to analyze availability'} onRetry={loadData} />
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center space-x-4">
-        <Link href="/bookings" className="p-2 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">Booking Preview</h1>
-          <p className="text-sm text-neutral-400">Status: {status}</p>
-        </div>
-      </div>
-
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm">
-          {error}
-        </div>
-      )}
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6 pb-20">
+      <PageHeader
+        title="Safety Confirmation & Preview"
+        description={`Verifying temporal capacity for ${booking?.eventName || 'Booking'} #${id.substring(0, 8)}`}
+        tag={<StatusBadge status={status} />}
+        actions={
+          <Link
+            href={`/bookings/${id}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border hover:bg-surface-raised text-text-muted hover:text-text text-xs font-medium rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Detail</span>
+          </Link>
+        }
+      />
 
       {conflictError && (
         <ConflictModal
@@ -137,7 +138,6 @@ export default function BookingPreviewPage({ params }: { params: { id: string } 
           isRefreshing={submitting}
           onClose={() => setConflictError(null)}
           onChangeQuantity={() => {
-            // Usually we'd go back to the builder
             router.push(`/bookings/new`); 
           }}
           onChangeDate={() => {
@@ -161,59 +161,94 @@ export default function BookingPreviewPage({ params }: { params: { id: string } 
       )}
 
       {status === 'CONFIRMED' ? (
-        <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-8 text-center space-y-4">
-          <div className="flex justify-center"><CheckCircle2 className="w-12 h-12 text-green-500" /></div>
-          <h2 className="text-xl font-medium text-green-400">Reservation Secured</h2>
-          <p className="text-neutral-400">Redirecting to bookings list...</p>
+        <div className="bg-status-safe/10 border border-status-safe/30 rounded-xl p-8 text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-status-safe/20 text-status-safe flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-text">Reservation Safely Secured</h2>
+          <p className="text-xs text-text-muted">Temporal inventory locks have been applied. Redirecting to bookings list...</p>
         </div>
       ) : (
         <>
-          <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6 space-y-6">
-            <h2 className="text-lg font-medium text-white mb-4 uppercase tracking-wider text-sm text-neutral-400">Expanded Demand</h2>
-            <div className="divide-y divide-white/5">
-              {availability.items.map((item) => (
-                <div key={item.inventoryItemId} className="py-3 flex justify-between items-center">
-                  <span className="text-neutral-200">{inventoryMap[item.inventoryItemId]?.name || 'Unknown Item'}</span>
-                  <span className="text-neutral-400 font-medium">{item.required} units</span>
-                </div>
-              ))}
+          {/* Primary Safety Verdict Banner */}
+          {availability.available ? (
+            <div className="bg-status-safe/10 border border-status-safe/30 rounded-lg p-4 flex items-start gap-3">
+              <div className="p-2 bg-status-safe/20 text-status-safe rounded-md shrink-0 mt-0.5">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-status-safe">Safe to Promise — Zero Bottlenecks Detected</h3>
+                <p className="text-xs text-text-muted mt-0.5 leading-relaxed">
+                  All demanded inventory units are verified available across the complete reservation window, including setup and cleaning turnaround buffers.
+                </p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-status-danger/10 border border-status-danger/30 rounded-lg p-4 flex items-start gap-3">
+              <div className="p-2 bg-status-danger/20 text-status-danger rounded-md shrink-0 mt-0.5">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-status-danger">Inventory Shortages Detected</h3>
+                <p className="text-xs text-text-muted mt-0.5 leading-relaxed">
+                  One or more items do not have sufficient uncommitted stock for this time slot. Review the breakdown below before confirming.
+                </p>
+              </div>
+            </div>
+          )}
 
-          <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6 space-y-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-medium text-white uppercase tracking-wider text-sm text-neutral-400">Availability</h2>
-              {availability.available ? (
-                <span className="flex items-center text-green-400 text-sm font-medium"><CheckCircle2 className="w-4 h-4 mr-1"/> ALL CLEAR</span>
-              ) : (
-                <span className="flex items-center text-red-400 text-sm font-medium"><AlertTriangle className="w-4 h-4 mr-1"/> SHORTAGES DETECTED</span>
-              )}
+          {/* Item Availability Breakdown */}
+          <div className="bg-surface border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-border bg-surface-subtle flex items-center justify-between">
+              <h2 className="text-xs font-semibold text-text uppercase tracking-wider">
+                Line Items Capacity Analysis
+              </h2>
+              <span className="text-[10px] font-mono text-text-muted tabular-nums">
+                {availability.items.length} ITEMS
+              </span>
             </div>
 
-            <div className="space-y-4">
+            <div className="divide-y divide-border/60">
               {availability.items.map((item) => {
                 const isShortage = item.shortage > 0;
                 return (
-                  <div key={item.inventoryItemId} className={`p-4 rounded-xl border ${isShortage ? 'bg-red-500/5 border-red-500/10' : 'bg-neutral-950 border-white/5'}`}>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-neutral-200 font-medium">{inventoryMap[item.inventoryItemId]?.name || 'Unknown Item'}</span>
-                      {isShortage ? <XCircle className="w-5 h-5 text-red-400" /> : <CheckCircle2 className="w-5 h-5 text-green-400" />}
+                  <div key={item.inventoryItemId} className="p-4 hover:bg-surface-raised transition-colors">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-semibold text-xs text-text">
+                        {inventoryMap[item.inventoryItemId]?.name || 'Inventory Item'}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {isShortage ? (
+                          <span className="text-[10px] font-mono font-bold text-status-danger bg-status-danger/15 px-2 py-0.5 rounded border border-status-danger/30">
+                            SHORTAGE: -{item.shortage}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono font-semibold text-status-safe bg-status-safe/15 px-2 py-0.5 rounded border border-status-safe/30 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> AVAILABLE
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-4 text-sm mt-4">
+
+                    <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-border/40 text-xs">
                       <div>
-                        <div className="text-neutral-500">Required</div>
-                        <div className="text-white font-medium">{item.required}</div>
+                        <span className="text-[10px] text-text-dim uppercase font-medium">Demanded</span>
+                        <span className="font-mono text-text font-semibold tabular-nums block mt-0.5">
+                          {item.required} units
+                        </span>
                       </div>
                       <div>
-                        <div className="text-neutral-500">Available</div>
-                        <div className="text-white font-medium">{item.available}</div>
+                        <span className="text-[10px] text-text-dim uppercase font-medium">Available</span>
+                        <span className="font-mono text-text font-semibold tabular-nums block mt-0.5">
+                          {item.available} units
+                        </span>
                       </div>
-                      {isShortage && (
-                        <div>
-                          <div className="text-red-400/70">Shortage</div>
-                          <div className="text-red-400 font-medium">{item.shortage}</div>
-                        </div>
-                      )}
+                      <div>
+                        <span className="text-[10px] text-text-dim uppercase font-medium">Buffer Margin</span>
+                        <span className={`font-mono font-semibold tabular-nums block mt-0.5 ${isShortage ? 'text-status-danger' : 'text-status-safe'}`}>
+                          {item.available - item.required >= 0 ? `+${item.available - item.required}` : `-${item.shortage}`} units
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -221,25 +256,26 @@ export default function BookingPreviewPage({ params }: { params: { id: string } 
             </div>
           </div>
 
-          <div className="flex justify-end space-x-4">
+          {/* Action Bar */}
+          <div className="flex items-center justify-end gap-3 pt-2">
             {status === 'DRAFT' && (
               <button
                 onClick={handleQuote}
                 disabled={submitting || !availability.available}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-surface border border-border hover:bg-surface-raised text-text text-xs font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {submitting ? 'Processing...' : 'Generate Quote'}
+                {submitting ? 'Generating Quote...' : 'Generate Quote'}
               </button>
             )}
-            {status === 'QUOTED' && (
-              <button
-                onClick={handleConfirm}
-                disabled={submitting}
-                className="px-6 py-2.5 bg-green-600 hover:bg-green-500 text-white font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting ? 'Confirming...' : 'Confirm Reservation'}
-              </button>
-            )}
+            
+            <button
+              onClick={handleConfirm}
+              disabled={submitting || !availability.available}
+              className="px-5 py-2 bg-status-safe hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>{submitting ? 'Confirming Reservation...' : 'Safely Confirm Reservation'}</span>
+            </button>
           </div>
         </>
       )}

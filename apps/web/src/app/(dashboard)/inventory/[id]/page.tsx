@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { InventoryItem } from '@/types/inventory';
-import { InventoryStatusBadge } from '@/components/inventory/InventoryStatusBadge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { InventoryDetailTabs } from '@/components/inventory/InventoryDetailTabs';
 import { EditInventoryModal } from '@/components/inventory/EditInventoryModal';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { PageHeader } from '@/components/ui/PageHeader';
 import Link from 'next/link';
-import { ArrowLeft, Edit } from 'lucide-react';
+import { ArrowLeft, Edit3, Boxes, Wrench, AlertTriangle, ShieldAlert } from 'lucide-react';
 
 export default function InventoryDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -44,15 +45,16 @@ export default function InventoryDetailPage({ params }: { params: { id: string }
 
   if (loading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <LoadingState />
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+        <div className="h-10 bg-surface border border-border rounded-lg w-48 animate-pulse" />
+        <LoadingState variant="page" />
       </div>
     );
   }
 
   if (error || !item) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
         <ErrorState 
           message={error || 'Item not found'} 
           onRetry={loadItem} 
@@ -61,84 +63,101 @@ export default function InventoryDetailPage({ params }: { params: { id: string }
     );
   }
 
+  const availableQty = item.availableQty ?? item.usableQty;
+
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center space-x-2 text-sm text-text-muted mb-4">
-        <Link href="/inventory" className="hover:text-primary transition-colors flex items-center">
-          <ArrowLeft className="w-4 h-4 mr-1" />
-          Back to Inventory
-        </Link>
-      </div>
-
-      <div className="bg-surface border border-border rounded-xl p-6 shadow-sm flex flex-col md:flex-row md:items-start justify-between gap-6">
-        <div>
-          <div className="flex items-center space-x-3 mb-2">
-            <h1 className="text-2xl font-bold text-text">{item.name}</h1>
-            <InventoryStatusBadge status={item.status} />
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 pb-20">
+      <PageHeader
+        title={item.name}
+        description={`SKU: ${item.sku || 'N/A'} · Item ID #${item.id.substring(0, 8)}`}
+        tag={<StatusBadge status={item.status} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <Link
+              href="/inventory"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border hover:bg-surface-raised text-text-muted hover:text-text text-xs font-medium rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Stock</span>
+            </Link>
+            <button 
+              onClick={() => setIsEditModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primaryHover transition-colors shadow-sm"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit Details</span>
+            </button>
           </div>
-          <div className="text-sm text-text-muted space-x-4">
-            <span>SKU: <span className="text-text font-medium">{item.sku || 'N/A'}</span></span>
-            <span>ID: <span className="text-text font-medium text-xs">{item.id}</span></span>
+        }
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        {/* Stock Ledger Snapshot */}
+        <div className="lg:col-span-1 bg-surface border border-border rounded-lg p-4 space-y-4">
+          <div className="flex items-center gap-2 text-[10px] font-semibold text-text-dim uppercase tracking-wider pb-2 border-b border-border">
+            <Boxes className="w-3.5 h-3.5 text-primary" />
+            <span>Stock Ledger Balance</span>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setIsEditModalOpen(true)}
-            className="inline-flex items-center justify-center px-4 py-2 border border-border bg-background text-text font-medium rounded-lg hover:bg-background-dark transition-colors shadow-sm text-sm"
-          >
-            <Edit className="w-4 h-4 mr-2" />
-            Edit Item
-          </button>
-        </div>
-      </div>
+          <div className="space-y-3 text-xs">
+            <div className="flex justify-between items-center">
+              <span className="text-text-muted">Total Owned</span>
+              <span className="font-mono font-bold text-text tabular-nums">{item.totalQty}</span>
+            </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="md:col-span-1 space-y-6">
-          <div className="bg-surface border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-text uppercase tracking-wider mb-4">Stock Overview</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-text-muted">Total Owned</span>
-                <span className="font-medium text-text">{item.totalQty}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-text-muted">Usable</span>
-                <span className={`font-medium ${item.usableQty === 0 ? 'text-red-500' : 'text-text'}`}>
-                  {item.usableQty}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-text-muted">Active Committed</span>
-                <span className={`font-medium ${(item.committedQty ?? 0) > 0 ? 'text-amber-400 font-semibold' : 'text-text'}`}>
-                  {item.committedQty ?? 0}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-text-muted">Currently Available</span>
-                <span className={`font-medium ${(item.availableQty ?? item.usableQty) === 0 ? 'text-red-500' : 'text-emerald-400 font-semibold'}`}>
-                  {item.availableQty ?? item.usableQty}
-                </span>
-              </div>
-              <div className="border-t border-border pt-4 space-y-3">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-text-muted">In Maintenance</span>
-                  <span className="font-medium text-blue-500">{item.maintenanceQty}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-text-muted">Damaged</span>
-                  <span className="font-medium text-yellow-500">{item.damagedQty}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-text-muted">Missing</span>
-                  <span className="font-medium text-orange-500">{item.missingQty}</span>
-                </div>
-              </div>
+            <div className="flex justify-between items-center">
+              <span className="text-text-muted">Usable Working Stock</span>
+              <span className={`font-mono font-bold tabular-nums ${item.usableQty === 0 ? 'text-status-danger' : 'text-text'}`}>
+                {item.usableQty}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-text-muted">Currently Committed</span>
+              <span className={`font-mono font-bold tabular-nums ${(item.committedQty ?? 0) > 0 ? 'text-status-warning' : 'text-text-dim'}`}>
+                {item.committedQty ?? 0}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center pt-2 border-t border-border">
+              <span className="font-semibold text-text">Available Right Now</span>
+              <span className={`font-mono text-sm font-bold tabular-nums ${availableQty === 0 ? 'text-status-danger' : 'text-status-safe'}`}>
+                {availableQty}
+              </span>
+            </div>
+          </div>
+
+          {/* Physical Discrepancies */}
+          <div className="border-t border-border pt-3 space-y-2 text-xs">
+            <div className="text-[10px] font-semibold text-text-dim uppercase tracking-wider mb-2">
+              Quarantine / Exclusions
+            </div>
+            
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-text-muted flex items-center gap-1.5">
+                <Wrench className="w-3 h-3 text-status-info" /> In Maintenance
+              </span>
+              <span className="font-mono font-semibold text-status-info tabular-nums">{item.maintenanceQty}</span>
+            </div>
+
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-text-muted flex items-center gap-1.5">
+                <AlertTriangle className="w-3 h-3 text-status-warning" /> Damaged Units
+              </span>
+              <span className="font-mono font-semibold text-status-warning tabular-nums">{item.damagedQty}</span>
+            </div>
+
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-text-muted flex items-center gap-1.5">
+                <ShieldAlert className="w-3 h-3 text-status-danger" /> Missing Units
+              </span>
+              <span className="font-mono font-semibold text-status-danger tabular-nums">{item.missingQty}</span>
             </div>
           </div>
         </div>
 
-        <div className="md:col-span-3">
+        {/* Operational Detail Tabs */}
+        <div className="lg:col-span-3">
           <InventoryDetailTabs itemId={item.id} />
         </div>
       </div>

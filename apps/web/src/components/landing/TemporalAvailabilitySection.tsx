@@ -96,7 +96,7 @@ export function TemporalAvailabilitySection() {
                 </div>
 
                 {/* Booking A Timeline Track */}
-                <div className="relative h-28 bg-surface-elevated/40 border border-border/50 rounded-lg p-3 overflow-hidden">
+                <div className="relative h-28 bg-surface-raised/40 border border-border/50 rounded-lg p-3 overflow-hidden">
                   
                   {/* Event Bar */}
                   <div className="relative h-9">
@@ -145,7 +145,7 @@ export function TemporalAvailabilitySection() {
                   <span className="text-text-muted text-[11px]">Physical capacity: {temporalDemo.inventory.primaryItem.totalCapacity} units</span>
                 </div>
 
-                <div className="relative h-12 bg-surface-elevated/40 border border-border/50 rounded-lg p-2">
+                <div className="relative h-12 bg-surface-raised/40 border border-border/50 rounded-lg p-2">
                   <motion.div
                     style={{ left: posAOp.left, width: posAOp.width }}
                     initial={{ scaleX: 0, opacity: 0 }}
@@ -176,7 +176,7 @@ export function TemporalAvailabilitySection() {
                   </span>
                 </div>
 
-                <div className="relative h-20 bg-surface-elevated/40 border border-border/50 rounded-lg p-3">
+                <div className="relative h-20 bg-surface-raised/40 border border-border/50 rounded-lg p-3">
                   
                   {/* Overlap Visual Indicator (Warning zone) */}
                   <motion.div

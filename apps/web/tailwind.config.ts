@@ -11,33 +11,50 @@ const config: Config = {
     extend: {
       colors: {
         background: '#0c0c0f',
-        surface: '#111114',
-        surfaceHover: '#18181c',
-        border: '#22222a',
+        surface: {
+          DEFAULT: '#101014',
+          subtle: '#0d0d11',
+          raised: '#16161c',
+          hover: '#1c1c24',
+          active: '#22222e',
+        },
+        surfaceHover: '#18181f',
+        border: {
+          DEFAULT: '#202028',
+          subtle: '#181820',
+          muted: '#262632',
+          active: '#383848',
+        },
         primary: {
           DEFAULT: '#f59e0b',
           foreground: '#0c0c0f',
         },
         primaryHover: '#d97706',
         text: {
-          DEFAULT: '#f0f0f2',
-          muted: '#8a8a99'
+          DEFAULT: '#f0f0f4',
+          muted: '#8e8ea0',
+          dim: '#5d5d6e',
         },
         urgency: {
           critical: '#ef4444',
           attention: '#f59e0b',
-          normal: '#3f3f46'
+          normal: '#3f3f46',
         },
         status: {
-          available: '#22c55e',
+          available: '#10b981',
+          safe: '#10b981',
           conflict: '#ef4444',
-          operational: '#f59e0b'
-        }
+          danger: '#ef4444',
+          operational: '#f59e0b',
+          warning: '#f59e0b',
+          info: '#3b82f6',
+          neutral: '#71717a',
+        },
       },
       fontFamily: {
         sans: ['var(--font-manrope)', 'sans-serif'],
         mono: ['var(--font-plex-mono)', 'monospace'],
-      }
+      },
     },
   },
   plugins: [],

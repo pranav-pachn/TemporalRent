@@ -503,13 +503,17 @@ export default function CalendarPage() {
     return format(currentDate, 'MMMM yyyy');
   }, [viewMode, currentDate, weekStart, weekEnd]);
 
-  // Event placement in week view
+  // Event & Buffer placement in week view (distinguishing Event Window vs Buffer Window)
   const getEventPosition = (event: CalendarEvent) => {
     const start = new Date(event.eventStart);
     const end = new Date(event.eventEnd);
+    const periodStart = event.periodStart ? new Date(event.periodStart) : start;
+    const periodEnd = event.periodEnd ? new Date(event.periodEnd) : end;
 
     const startH = getHours(start) + getMinutes(start) / 60;
     const endH = getHours(end) + getMinutes(end) / 60;
+    const pStartH = getHours(periodStart) + getMinutes(periodStart) / 60;
+    const pEndH = getHours(periodEnd) + getMinutes(periodEnd) / 60;
 
     const clampedStart = Math.max(START_HOUR, Math.min(END_HOUR + 1, startH));
     const clampedEnd = Math.max(clampedStart + 0.6, Math.min(END_HOUR + 1, endH));
@@ -517,7 +521,29 @@ export default function CalendarPage() {
     const top = (clampedStart - START_HOUR) * HOUR_HEIGHT;
     const height = Math.max(34, (clampedEnd - clampedStart) * HOUR_HEIGHT - 2);
 
-    return { top, height, durationHours: endH - startH };
+    // Prep Buffer (prior to event on same day)
+    const hasPrepBuffer = pStartH < startH && isSameDay(periodStart, start);
+    const clampedPrepStart = Math.max(START_HOUR, Math.min(clampedStart, pStartH));
+    const prepTop = (clampedPrepStart - START_HOUR) * HOUR_HEIGHT;
+    const prepHeight = Math.max(0, top - prepTop);
+
+    // Return & Cleaning Buffer (after event on same day)
+    const hasReturnBuffer = pEndH > endH && isSameDay(periodEnd, end);
+    const clampedReturnEnd = Math.min(END_HOUR + 1, Math.max(clampedEnd, pEndH));
+    const returnTop = top + height;
+    const returnHeight = Math.max(0, ((clampedReturnEnd - START_HOUR) * HOUR_HEIGHT) - returnTop);
+
+    return { 
+      top, 
+      height, 
+      durationHours: endH - startH,
+      hasPrepBuffer,
+      prepTop,
+      prepHeight,
+      hasReturnBuffer,
+      returnTop,
+      returnHeight,
+    };
   };
 
   // Live Current Time Indicator
@@ -671,6 +697,43 @@ export default function CalendarPage() {
 
       </div>
 
+      {/* 4-TIER TEMPORAL DISTINCTION LEGEND */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-surface border border-border rounded-lg text-xs">
+        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded bg-primary border border-primary/40 shadow-sm" />
+            <span className="font-semibold text-text text-[11px] tracking-wider uppercase">Event Window</span>
+            <span className="text-text-muted text-[10px] hidden sm:inline">(Actual event)</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded bg-surface-raised border border-dashed border-status-warning/60 shadow-sm" />
+            <span className="font-semibold text-text text-[11px] tracking-wider uppercase">Buffer Window</span>
+            <span className="text-text-muted text-[10px] hidden sm:inline">(Turnaround / Prep / Transit)</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="w-3.5 h-3.5 rounded bg-status-info/20 border border-status-info/50 text-[9px] font-mono font-bold flex items-center justify-center text-status-info">
+              Qty
+            </span>
+            <span className="font-semibold text-text text-[11px] tracking-wider uppercase">Inventory Pressure</span>
+            <span className="text-text-muted text-[10px] hidden sm:inline">(Committed items)</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="w-3.5 h-3.5 rounded bg-status-danger/20 border border-status-danger/50 text-[9px] font-bold flex items-center justify-center text-status-danger">
+              !
+            </span>
+            <span className="font-semibold text-status-danger text-[11px] tracking-wider uppercase">Conflict</span>
+            <span className="text-text-muted text-[10px] hidden sm:inline">(Shortage detected)</span>
+          </div>
+        </div>
+
+        <div className="text-[11px] font-mono text-text-muted tabular-nums">
+          {allEvents.length} BOOKINGS · {conflictsCount > 0 ? `${conflictsCount} SHORTAGE ALERTS` : '0 SHORTAGES'}
+        </div>
+      </div>
+
       {/* 2. TWO-LAYER WORKSPACE: Primary Event Calendar + Inventory Pressure Layer */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
         
@@ -793,60 +856,97 @@ export default function CalendarPage() {
                               </div>
                             )}
 
-                            {/* Information-Dense Event Cards with Height-Adaptive Rendering */}
+                            {/* Information-Dense Event Cards with Buffer Windows */}
                             {dayEvents.map((event) => {
                               const eventType = detectEventType(event.eventName);
                               const config = EVENT_TYPE_MAP[eventType] || EVENT_TYPE_MAP.Other;
-                              const { top, height, durationHours } = getEventPosition(event);
+                              const { 
+                                top, 
+                                height, 
+                                hasPrepBuffer, 
+                                prepTop, 
+                                prepHeight, 
+                                hasReturnBuffer, 
+                                returnTop, 
+                                returnHeight 
+                              } = getEventPosition(event);
 
                               const startTimeFormatted = format(new Date(event.eventStart), 'h:mm a');
                               const endTimeFormatted = format(new Date(event.eventEnd), 'h:mm a');
 
                               return (
-                                <div
-                                  key={event.bookingId}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedEvent(event);
-                                  }}
-                                  style={{
-                                    top: `${top}px`,
-                                    height: `${height}px`,
-                                  }}
-                                  className={`absolute inset-x-0.5 rounded p-1.5 overflow-hidden flex flex-col justify-between border border-l-[3px] ${config.cardAccent} ${config.cardBg} ${config.cardBorder} shadow transition-all hover:scale-[1.01] hover:z-30 cursor-pointer group`}
-                                >
-                                  <div>
-                                    {/* Event Title + Conflict Tag */}
-                                    <div className="flex items-center justify-between gap-1 leading-tight">
-                                      <span className={`text-[11px] font-bold ${config.textColor} truncate`}>
-                                        {event.eventName}
+                                <div key={event.bookingId}>
+                                  {/* Prep Buffer Window */}
+                                  {hasPrepBuffer && prepHeight > 4 && (
+                                    <div
+                                      style={{ top: `${prepTop}px`, height: `${prepHeight}px` }}
+                                      className="absolute inset-x-0.5 rounded-t border border-dashed border-status-warning/50 bg-status-warning/5 overflow-hidden flex items-center justify-center pointer-events-none z-10"
+                                      title="Turnaround Prep Buffer: Equipment staging, checkout, and transit"
+                                    >
+                                      <span className="text-[8px] font-mono font-semibold text-status-warning/90 uppercase tracking-widest px-1 truncate">
+                                        Prep Buffer
                                       </span>
-                                      {event.hasConflict && (
-                                        <span className="flex-shrink-0 px-1 py-0.2 rounded bg-red-500/20 text-red-300 border border-red-500/40 text-[8px] font-extrabold flex items-center gap-0.5">
-                                          <AlertTriangle className="w-2.5 h-2.5" /> Conflict
+                                    </div>
+                                  )}
+
+                                  {/* Core Event Window Card */}
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedEvent(event);
+                                    }}
+                                    style={{
+                                      top: `${top}px`,
+                                      height: `${height}px`,
+                                    }}
+                                    className={`absolute inset-x-0.5 rounded p-1.5 overflow-hidden flex flex-col justify-between border border-l-[3px] ${config.cardAccent} ${config.cardBg} ${config.cardBorder} shadow transition-all hover:scale-[1.01] hover:z-30 cursor-pointer group`}
+                                  >
+                                    <div>
+                                      {/* Event Title + Conflict Tag */}
+                                      <div className="flex items-center justify-between gap-1 leading-tight">
+                                        <span className={`text-[11px] font-bold ${config.textColor} truncate`}>
+                                          {event.eventName}
                                         </span>
+                                        {event.hasConflict && (
+                                          <span className="flex-shrink-0 px-1 py-0.2 rounded bg-status-danger/20 text-status-danger border border-status-danger/40 text-[8px] font-extrabold flex items-center gap-0.5">
+                                            <AlertTriangle className="w-2.5 h-2.5" /> Conflict
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {/* Time Range */}
+                                      <div className={`text-[9.5px] ${config.subtextColor} font-medium mt-0.5 truncate`}>
+                                        {startTimeFormatted} – {endTimeFormatted}
+                                      </div>
+
+                                      {/* Customer Name */}
+                                      {height >= 55 && event.customerName && (
+                                        <div className="text-[9.5px] text-text-muted truncate mt-0.5">
+                                          {event.customerName}
+                                        </div>
                                       )}
                                     </div>
 
-                                    {/* Time Range */}
-                                    <div className={`text-[9.5px] ${config.subtextColor} font-medium mt-0.5 truncate`}>
-                                      {startTimeFormatted} – {endTimeFormatted}
-                                    </div>
-
-                                    {/* Customer Name (Shown if card is tall enough) */}
-                                    {height >= 55 && event.customerName && (
-                                      <div className="text-[9.5px] text-neutral-400 truncate mt-0.5">
-                                        {event.customerName}
+                                    {/* Bottom: Inventory Pressure Line */}
+                                    {height >= 75 && (
+                                      <div className="pt-1 border-t border-white/5 flex items-center justify-between text-[9px] text-neutral-300 truncate">
+                                        <span className="flex items-center gap-1 font-medium truncate">
+                                          <Package className="w-2.5 h-2.5 text-primary flex-shrink-0" />
+                                          <span className="truncate font-mono">{event.itemSummary}</span>
+                                        </span>
                                       </div>
                                     )}
                                   </div>
 
-                                  {/* Bottom: Inventory Impact Line */}
-                                  {height >= 75 && (
-                                    <div className="pt-1 border-t border-white/5 flex items-center justify-between text-[9px] text-neutral-300 truncate">
-                                      <span className="flex items-center gap-1 font-medium truncate">
-                                        <Package className="w-2.5 h-2.5 text-amber-400 flex-shrink-0" />
-                                        <span className="truncate">{event.itemSummary}</span>
+                                  {/* Return Buffer Window */}
+                                  {hasReturnBuffer && returnHeight > 4 && (
+                                    <div
+                                      style={{ top: `${returnTop}px`, height: `${returnHeight}px` }}
+                                      className="absolute inset-x-0.5 rounded-b border border-dashed border-status-warning/50 bg-status-warning/5 overflow-hidden flex items-center justify-center pointer-events-none z-10"
+                                      title="Turnaround Return Buffer: Equipment return, inspection, and cleaning"
+                                    >
+                                      <span className="text-[8px] font-mono font-semibold text-status-warning/90 uppercase tracking-widest px-1 truncate">
+                                        Return Buffer
                                       </span>
                                     </div>
                                   )}

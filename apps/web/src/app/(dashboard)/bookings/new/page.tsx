@@ -13,6 +13,8 @@ import { CreateCustomerModal } from '@/components/customers/CreateCustomerModal'
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { DateTimePicker } from '@/components/ui/DateTimePicker';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 export default function BookingBuilderPage() {
   const router = useRouter();
@@ -228,19 +230,24 @@ export default function BookingBuilderPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-24">
-      <div className="flex items-center space-x-4">
-        <Link href="/bookings" className="p-2 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div className="flex-1 flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-white tracking-tight">Booking Builder</h1>
-          <span className="text-sm font-medium px-2 py-1 bg-neutral-800 text-neutral-300 rounded">DRAFT</span>
-        </div>
-      </div>
+    <div className="max-w-4xl mx-auto space-y-6 pb-24 p-4 sm:p-6">
+      <PageHeader
+        title="Reservation Builder"
+        description="Configure event dates, customer details, and build demand with live capacity checking"
+        tag={<StatusBadge status="DRAFT" size="sm" />}
+        actions={
+          <Link
+            href="/bookings"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border hover:bg-surface-raised text-text-muted hover:text-text text-xs font-medium rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back</span>
+          </Link>
+        }
+      />
 
       {submitError && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm">
+        <div className="bg-status-danger/10 border border-status-danger/30 text-status-danger px-4 py-3 rounded-lg text-xs">
           {submitError}
         </div>
       )}
@@ -522,24 +529,24 @@ export default function BookingBuilderPage() {
         )}
       </div>
 
-      <div className="pt-4 border-t border-white/5 flex flex-col items-center">
+      <div className="pt-4 border-t border-border flex flex-col items-center">
         {hasShortages && (
-          <div className="flex items-center text-red-400 text-sm font-medium mb-4">
-            <AlertTriangle className="w-4 h-4 mr-2" />
-            Inventory shortages detected
+          <div className="flex items-center gap-2 text-status-danger text-xs font-semibold mb-3 bg-status-danger/10 px-3 py-1.5 rounded-lg border border-status-danger/30">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>Capacity shortage detected: Overbooked item allocations</span>
           </div>
         )}
         
         <button
           onClick={handleConfirmBooking}
           disabled={!isFormComplete || checkingAvailability || submitting}
-          className={`w-full py-4 rounded-xl font-medium text-lg transition-colors ${
+          className={`w-full py-3 rounded-lg font-semibold text-sm transition-colors shadow-sm flex items-center justify-center gap-2 ${
             hasShortages
-              ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30'
-              : 'bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 disabled:bg-neutral-800 disabled:text-neutral-500'
+              ? 'bg-status-danger/20 text-status-danger hover:bg-status-danger/30 border border-status-danger/40'
+              : 'bg-primary text-primary-foreground hover:bg-primaryHover disabled:opacity-40 disabled:cursor-not-allowed'
           }`}
         >
-          {submitting ? 'Securing Transaction...' : hasShortages ? 'Resolve Inventory Shortage' : 'Confirm Booking'}
+          {submitting ? 'Securing Transaction...' : hasShortages ? 'Resolve Capacity Shortages' : 'Lock Reservation & Confirm'}
         </button>
       </div>
 

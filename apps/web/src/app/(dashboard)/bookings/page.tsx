@@ -1,13 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { BookingDTO } from '@/types/bookings';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import Link from 'next/link';
-import { Plus, ChevronRight, Calendar, Trash2 } from 'lucide-react';
+import { Plus, ChevronRight, Calendar, Trash2, Search, Filter } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function BookingsPage() {
   const router = useRouter();
@@ -15,11 +20,19 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  // Cancel dialog state
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+
   const loadBookings = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await apiClient.fetchBookingsList(1, 50);
+      const res = await apiClient.fetchBookingsList(1, 100);
       setBookings(res.data);
     } catch (err: any) {
       console.error('Failed to load bookings:', err);
@@ -37,110 +50,217 @@ export default function BookingsPage() {
     loadBookings();
   }, [loadBookings]);
 
-  const handleCancelBooking = async (id: string) => {
-    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+  const handleConfirmCancel = async () => {
+    if (!cancellingId) return;
     try {
-      await apiClient.cancelBooking(id, crypto.randomUUID(), 'Cancelled via dashboard');
-      loadBookings();
+      setIsCancelling(true);
+      await apiClient.cancelBooking(cancellingId, crypto.randomUUID(), 'Cancelled via operations dashboard');
+      setCancellingId(null);
+      await loadBookings();
     } catch (err: any) {
       alert(err.message || 'Failed to cancel booking');
+    } finally {
+      setIsCancelling(false);
     }
   };
 
+  const filteredBookings = useMemo(() => {
+    return bookings.filter((b) => {
+      const matchesStatus = statusFilter === 'ALL' || b.status.toUpperCase() === statusFilter;
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = 
+        !q ||
+        b.eventName.toLowerCase().includes(q) ||
+        b.customerId.toLowerCase().includes(q) ||
+        ((b as any).customer?.name && (b as any).customer.name.toLowerCase().includes(q)) ||
+        b.id.toLowerCase().includes(q);
+      return matchesStatus && matchesSearch;
+    });
+  }, [bookings, statusFilter, searchQuery]);
+
   if (loading) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
-        <LoadingState />
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+        <div className="h-10 bg-surface border border-border rounded-lg w-48 animate-pulse" />
+        <LoadingState variant="table" rows={6} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
-        <ErrorState 
-          message={error} 
-          onRetry={loadBookings} 
-        />
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <ErrorState message={error} onRetry={loadBookings} />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex justify-between items-center gap-4">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Bookings</h1>
-        <Link 
-          href="/bookings/new" 
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg flex items-center transition-colors shrink-0"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          New Booking
-        </Link>
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+      <PageHeader
+        title="Reservations & Bookings"
+        description="Temporal inventory reservations, safe confirmation statuses, and customer commitments"
+        tag={
+          <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded bg-surface-raised border border-border text-text-muted tabular-nums">
+            {bookings.length} TOTAL
+          </span>
+        }
+        actions={
+          <Link 
+            href="/bookings/new" 
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-primary hover:bg-primaryHover text-primary-foreground text-xs font-semibold rounded-lg shadow-sm transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Reservation</span>
+          </Link>
+        }
+      />
+
+      {/* Filter & Search Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface border border-border rounded-lg p-2.5">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search event, customer, or ID..."
+              className="w-full bg-surface-raised border border-border rounded-md pl-8 pr-3 py-1.5 text-xs text-text placeholder:text-text-dim focus:outline-none focus:border-primary"
+            />
+          </div>
+        </div>
+
+        {/* Status Filter Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+          {['ALL', 'DRAFT', 'CONFIRMED', 'DISPATCHED', 'COMPLETED', 'CANCELLED'].map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap transition-colors ${
+                statusFilter === s
+                  ? 'bg-surface-active text-text font-semibold border border-border'
+                  : 'text-text-muted hover:text-text hover:bg-surface-raised'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {bookings.length === 0 ? (
-        <div className="bg-neutral-900 border border-white/5 rounded-2xl py-24 text-center">
-          <Calendar className="w-12 h-12 text-neutral-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-white mb-2">No bookings yet</h3>
-          <p className="text-neutral-400">Create your first booking to get started.</p>
-        </div>
+      {filteredBookings.length === 0 ? (
+        <EmptyState
+          icon={Calendar}
+          title={searchQuery || statusFilter !== 'ALL' ? 'No matching bookings found' : 'No bookings registered yet'}
+          description={
+            searchQuery || statusFilter !== 'ALL'
+              ? 'Try adjusting your search criteria or status filter tabs.'
+              : 'Create your first reservation to begin tracking equipment allocations and safe confirmation.'
+          }
+          action={
+            <Link
+              href="/bookings/new"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:bg-primaryHover transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Create First Reservation</span>
+            </Link>
+          }
+        />
       ) : (
-        <div className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden">
+        <div className="bg-surface border border-border rounded-lg overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap sm:whitespace-normal">
-            <thead className="bg-neutral-950 border-b border-white/5 text-neutral-400 uppercase tracking-wider text-xs font-semibold">
-              <tr>
-                <th className="px-6 py-4">Event & ID</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Dates</th>
-                <th className="px-6 py-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {bookings.map((booking) => (
-                <tr key={booking.id} className="hover:bg-white/5 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-white">{booking.eventName}</div>
-                    <div className="text-neutral-500 text-xs mt-1">#{booking.id.substring(0, 8)}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 bg-white/10 text-white text-xs font-medium rounded-md">
-                      {booking.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-neutral-300">
-                      {new Date(booking.eventStart).toLocaleDateString()} &ndash; {new Date(booking.eventEnd).toLocaleDateString()}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end items-center space-x-3">
-                      <Link 
-                        href={`/bookings/${booking.id}`}
-                        className="inline-flex items-center text-blue-400 hover:text-blue-300 font-medium"
-                      >
-                        View
-                        <ChevronRight className="w-4 h-4 ml-1" />
-                      </Link>
-                      {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
-                        <button
-                          onClick={() => handleCancelBooking(booking.id)}
-                          className="text-red-400 hover:text-red-300 p-1 rounded-md hover:bg-white/5 transition-colors"
-                          title="Cancel Booking"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+            <table className="w-full text-left text-xs">
+              <thead className="bg-surface-subtle border-b border-border text-text-muted uppercase tracking-wider text-[10px] font-semibold">
+                <tr>
+                  <th className="px-4 py-3">Reservation & Client</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Event Window</th>
+                  <th className="px-4 py-3">ID Reference</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {filteredBookings.map((booking) => {
+                  const startDate = new Date(booking.eventStart);
+                  const endDate = new Date(booking.eventEnd);
+
+                  return (
+                    <tr key={booking.id} className="hover:bg-surface-raised transition-colors group">
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-text">{booking.eventName}</div>
+                        <div className="text-text-muted text-[11px] mt-0.5">
+                          {(booking as any).customer?.name || `Customer #${booking.customerId.slice(0, 8)}`}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <StatusBadge status={booking.status} size="sm" />
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="text-text font-mono tabular-nums text-[11px]">
+                          {format(startDate, 'MMM d, yyyy')}
+                        </div>
+                        <div className="text-text-dim text-[10px] mt-0.5">
+                          {format(startDate, 'h:mm a')} – {format(endDate, 'h:mm a')}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3 font-mono text-[11px] text-text-muted tabular-nums">
+                        #{booking.id.substring(0, 8)}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end items-center gap-2">
+                          {booking.status === 'DRAFT' && (
+                            <Link
+                              href={`/bookings/${booking.id}/preview`}
+                              className="px-2 py-1 bg-status-safe/10 hover:bg-status-safe/20 text-status-safe text-[11px] font-semibold rounded border border-status-safe/30 transition-colors"
+                            >
+                              Verify Safety
+                            </Link>
+                          )}
+                          <Link 
+                            href={`/bookings/${booking.id}`}
+                            className="inline-flex items-center gap-1 text-text-muted hover:text-text px-2 py-1 rounded bg-surface-subtle border border-border text-[11px] font-medium transition-colors"
+                          >
+                            <span>Inspect</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </Link>
+                          {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
+                            <button
+                              onClick={() => setCancellingId(booking.id)}
+                              className="text-text-dim hover:text-status-danger p-1 rounded hover:bg-surface-raised transition-colors"
+                              title="Cancel Reservation"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
+
+      {/* Explicit Destructive Action Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(cancellingId)}
+        title="Cancel Reservation?"
+        description="Cancelling this booking will immediately release all locked physical inventory reservations back into the pool. This cannot be undone."
+        confirmLabel="Release & Cancel Booking"
+        cancelLabel="Keep Reservation"
+        isDestructive={true}
+        isLoading={isCancelling}
+        onConfirm={handleConfirmCancel}
+        onCancel={() => setCancellingId(null)}
+      />
     </div>
   );
 }

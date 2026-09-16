@@ -6,6 +6,28 @@
   body {
     @apply bg-background text-text font-sans antialiased;
     background-color: #0c0c0f;
-    color: #f0f0f2;
+    color: #f0f0f4;
+  }
+
+  /* Custom dark scrollbar for operational tables & lists */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0d0d11;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #262632;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #383848;
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }

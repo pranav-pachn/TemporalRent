@@ -21,6 +21,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 export default function DispatchPage() {
   const router = useRouter();
@@ -119,34 +121,32 @@ export default function DispatchPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <Truck className="w-6 h-6 text-blue-500" />
-            Dispatch Board
-          </h1>
-          <p className="text-neutral-400 text-sm mt-1">
-            Manage physical fulfillment and warehouse dispatch operations.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Warehouse Dispatch Board"
+        description="Outbound fulfillment queue, item packing verification, and physical warehouse releases"
+        tag={
+          <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded bg-surface-raised border border-border text-text-muted tabular-nums">
+            {dispatches.length} DISPATCHES
+          </span>
+        }
+      />
 
       {actionError && (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm flex items-center justify-between">
+        <div className="p-3 bg-status-danger/10 border border-status-danger/30 rounded-lg text-status-danger text-xs flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{actionError}</span>
           </div>
-          <button onClick={() => setActionError(null)} className="text-red-400 hover:text-white">
+          <button onClick={() => setActionError(null)} className="text-status-danger hover:text-white">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-white/5 space-x-2 overflow-x-auto whitespace-nowrap pb-0.5">
+      <div className="flex border-b border-border space-x-2 overflow-x-auto whitespace-nowrap pb-0.5">
         {(['ALL', 'READY', 'PICKING', 'DISPATCHED'] as const).map((tab) => {
           const count = tab === 'ALL' ? dispatches.length : countByStatus(tab as DispatchStatus);
           const isActive = activeTab === tab;
@@ -154,15 +154,15 @@ export default function DispatchPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 ${
+              className={`pb-2.5 px-3 text-xs font-semibold transition-colors border-b-2 flex items-center gap-2 ${
                 isActive
-                  ? 'border-blue-500 text-blue-400'
-                  : 'border-transparent text-neutral-400 hover:text-white'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-text-muted hover:text-text'
               }`}
             >
               <span>{tab === 'ALL' ? 'All Dispatches' : tab}</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                isActive ? 'bg-blue-500/20 text-blue-300' : 'bg-neutral-800 text-neutral-500'
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded tabular-nums ${
+                isActive ? 'bg-primary/20 text-primary' : 'bg-surface-raised text-text-dim'
               }`}>
                 {count}
               </span>
@@ -208,27 +208,25 @@ export default function DispatchPage() {
             return (
               <div
                 key={dispatch.id}
-                className="bg-neutral-900 border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-colors flex flex-col justify-between space-y-4"
+                className="bg-surface border border-border rounded-lg p-4 hover:border-border-active transition-colors flex flex-col justify-between space-y-3.5 shadow-sm"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-lg font-semibold text-white tracking-tight">
+                      <h2 className="text-sm font-semibold text-text tracking-tight">
                         {dispatch.booking.eventName}
                       </h2>
-                      <div className="flex items-center gap-2 text-xs text-neutral-500 mt-1">
-                        <span>Booking #{dispatch.bookingId.substring(0, 8)}</span>
+                      <div className="flex items-center gap-2 text-[11px] text-text-muted mt-0.5">
+                        <span className="font-mono">#{dispatch.bookingId.substring(0, 8)}</span>
                         {dispatch.booking.customer && (
                           <>
                             <span>&middot;</span>
-                            <span className="text-neutral-400">{dispatch.booking.customer.name}</span>
+                            <span className="text-text-muted">{dispatch.booking.customer.name}</span>
                           </>
                         )}
                       </div>
                     </div>
-                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-md border uppercase tracking-wider ${statusColor}`}>
-                      ● {dispatch.status}
-                    </span>
+                    <StatusBadge status={dispatch.status} size="sm" />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-white/5 text-sm">

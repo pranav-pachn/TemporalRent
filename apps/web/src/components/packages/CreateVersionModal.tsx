@@ -90,7 +90,6 @@ export function CreateVersionModal({
       const newItem = res.data;
       setItems((prev) => [...prev, newItem]);
       
-      // Auto-assign to the first empty component row or add as new
       const emptyIndex = components.findIndex((c) => !c.inventoryItemId);
       if (emptyIndex !== -1) {
         handleComponentChange(emptyIndex, 'inventoryItemId', newItem.id);
@@ -149,50 +148,50 @@ export function CreateVersionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface border border-border rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-none animate-in fade-in duration-150">
+      <div className="bg-surface border border-border-muted rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="p-6 border-b border-border flex items-center justify-between">
+        <div className="p-5 border-b border-border bg-surface-raised flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-text">New Package Version</h2>
-            <p className="text-sm text-text-muted mt-0.5">
+            <h2 className="text-sm font-bold text-text">New Package Version</h2>
+            <p className="text-xs text-text-muted mt-0.5">
               Define components and quantities for <span className="font-semibold text-text">{packageName}</span>
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-text-muted hover:text-text hover:bg-surfaceHover rounded-lg transition-colors"
+            className="p-1.5 text-text-muted hover:text-text hover:bg-surface-subtle rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-5">
           {error && (
-            <div className="p-4 rounded-lg bg-urgency-critical/10 border border-urgency-critical/30 text-urgency-critical text-sm flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <div className="p-3 rounded-lg bg-status-danger/10 border border-status-danger/25 text-status-danger text-xs flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <div>{error}</div>
             </div>
           )}
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <label className="block text-sm font-semibold text-text">
-                Components & Quantities <span className="text-urgency-critical">*</span>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-text">
+                Components & Quantities <span className="text-status-danger">*</span>
               </label>
               <button
                 type="button"
                 onClick={() => setShowQuickAdd(!showQuickAdd)}
-                className="text-xs font-medium text-primary hover:underline"
+                className="text-xs font-medium text-primary hover:text-primary-hover"
               >
                 {showQuickAdd ? 'Hide Quick Add' : '+ Quick Add Item to Catalog'}
               </button>
             </div>
 
             {showQuickAdd && (
-              <div className="p-4 bg-background border border-border/80 rounded-lg space-y-3">
-                <div className="text-xs font-semibold text-text uppercase tracking-wider">
+              <div className="p-3.5 bg-surface-raised border border-border rounded-lg space-y-3">
+                <div className="text-[11px] font-semibold text-text uppercase tracking-wider">
                   Quick Add Inventory Item
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -202,7 +201,7 @@ export function CreateVersionModal({
                       placeholder="Item name (e.g. VIP Sofa)"
                       value={quickItemName}
                       onChange={(e) => setQuickItemName(e.target.value)}
-                      className="w-full px-3 py-2 bg-surface border border-border rounded-md text-sm text-text focus:outline-none focus:border-primary"
+                      className="w-full px-3 py-1.5 bg-surface border border-border rounded-md text-xs text-text placeholder:text-text-dim focus:outline-none focus:border-border-active"
                     />
                   </div>
                   <div>
@@ -212,7 +211,7 @@ export function CreateVersionModal({
                       placeholder="Total Qty"
                       value={quickItemQty}
                       onChange={(e) => setQuickItemQty(parseInt(e.target.value, 10) || 0)}
-                      className="w-full px-3 py-2 bg-surface border border-border rounded-md text-sm text-text focus:outline-none focus:border-primary"
+                      className="w-full px-3 py-1.5 bg-surface border border-border rounded-md text-xs text-text font-mono tabular-nums focus:outline-none focus:border-border-active"
                     />
                   </div>
                 </div>
@@ -221,7 +220,7 @@ export function CreateVersionModal({
                     type="button"
                     onClick={handleQuickAddItem}
                     disabled={quickAdding || !quickItemName.trim()}
-                    className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    className="px-3 py-1 bg-primary text-white text-xs font-medium rounded-md hover:bg-primary-hover transition-colors disabled:opacity-50"
                   >
                     {quickAdding ? 'Adding...' : 'Create & Select'}
                   </button>
@@ -236,7 +235,7 @@ export function CreateVersionModal({
                     required
                     value={comp.inventoryItemId}
                     onChange={(e) => handleComponentChange(idx, 'inventoryItemId', e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-background border border-border rounded-lg text-sm text-text focus:outline-none focus:border-primary transition-colors"
+                    className="w-full px-3 py-2 bg-surface-raised border border-border rounded-lg text-xs text-text focus:outline-none focus:border-border-active transition-colors"
                   >
                     <option value="">Select an inventory item...</option>
                     {items.map((item) => (
@@ -248,7 +247,7 @@ export function CreateVersionModal({
                 </div>
 
                 <div className="w-28 flex items-center gap-1.5">
-                  <span className="text-text-muted text-sm font-medium">×</span>
+                  <span className="text-text-muted text-xs font-medium">×</span>
                   <input
                     type="number"
                     min={1}
@@ -261,7 +260,7 @@ export function CreateVersionModal({
                         parseInt(e.target.value, 10) || 1
                       )
                     }
-                    className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm text-text focus:outline-none focus:border-primary transition-colors text-center font-medium"
+                    className="w-full px-2.5 py-2 bg-surface-raised border border-border rounded-lg text-xs text-text font-mono tabular-nums text-center focus:outline-none focus:border-border-active transition-colors"
                   />
                 </div>
 
@@ -269,7 +268,7 @@ export function CreateVersionModal({
                   <button
                     type="button"
                     onClick={() => handleRemoveComponent(idx)}
-                    className="p-2 text-text-muted hover:text-urgency-critical hover:bg-urgency-critical/10 rounded-lg transition-colors"
+                    className="p-1.5 text-text-dim hover:text-status-danger hover:bg-status-danger/10 rounded-md transition-colors"
                     title="Remove component"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -281,51 +280,51 @@ export function CreateVersionModal({
             <button
               type="button"
               onClick={handleAddComponent}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primaryHover transition-colors mt-2"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary-hover transition-colors mt-1"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               Add Another Component
             </button>
           </div>
 
-          <div className="pt-4 border-t border-border">
+          <div className="pt-3 border-t border-border">
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={publishImmediately}
                 onChange={(e) => setPublishImmediately(e.target.checked)}
-                className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                className="w-4 h-4 rounded border-border text-primary focus:ring-primary bg-surface"
               />
               <div>
-                <div className="text-sm font-medium text-text">Publish version immediately</div>
-                <div className="text-xs text-text-muted">
-                  Sets status to <span className="text-green-500 font-semibold">PUBLISHED</span> so it is immediately bookable.
+                <div className="text-xs font-semibold text-text">Publish version immediately</div>
+                <div className="text-[11px] text-text-muted">
+                  Sets status to <span className="text-status-safe font-semibold">PUBLISHED</span> so it is immediately bookable.
                 </div>
               </div>
             </label>
           </div>
 
-          <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
+          <div className="pt-3 border-t border-border flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-text-muted hover:text-text hover:bg-surfaceHover rounded-lg transition-colors"
+              className="px-3.5 py-2 text-xs font-medium text-text-muted hover:text-text hover:bg-surface-raised border border-border rounded-lg transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-hover transition-colors shadow-sm disabled:opacity-50"
             >
               {submitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   Saving Version...
                 </>
               ) : (
                 <>
-                  <Check className="w-4 h-4" />
+                  <Check className="w-3.5 h-3.5" />
                   {publishImmediately ? 'Create & Publish Version' : 'Create Draft Version'}
                 </>
               )}

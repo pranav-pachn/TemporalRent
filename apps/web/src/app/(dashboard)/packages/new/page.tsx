@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Package, Check, AlertCircle, Plus, Trash2, Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { InventoryItem } from '@/types/inventory';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 interface ComponentRow {
   inventoryItemId: string;
@@ -152,42 +153,39 @@ export default function NewPackagePage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div>
-        <Link 
-          href="/packages"
-          className="inline-flex items-center text-sm font-medium text-text-muted hover:text-text mb-4 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 mr-1.5" />
-          Back to Packages
-        </Link>
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
-            <Package className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-text">Create Package</h1>
-            <p className="text-text-muted text-sm mt-0.5">
-              Define a package and bundle components into Version 1.
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
+      <Link 
+        href="/packages"
+        className="inline-flex items-center text-xs font-medium text-text-muted hover:text-text transition-colors"
+      >
+        <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
+        Back to Packages Catalog
+      </Link>
+
+      <PageHeader
+        title="Create Package Bundle"
+        description="Bundle inventory items into a bookable rental package with versioned bill-of-materials"
+        tag={
+          <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded bg-surface-raised border border-border text-text-muted">
+            PACKAGE BUILDER
+          </span>
+        }
+      />
 
       {error && (
-        <div className="p-4 rounded-lg bg-urgency-critical/10 border border-urgency-critical/30 text-urgency-critical text-sm flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+        <div className="p-3.5 rounded-lg bg-status-danger/10 border border-status-danger/25 text-status-danger text-xs flex items-start gap-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>{error}</div>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Details */}
-        <div className="bg-surface border border-border rounded-xl p-6 shadow-sm space-y-4">
-          <h2 className="text-base font-semibold text-text">Package Details</h2>
+        <div className="bg-surface border border-border rounded-xl p-5 sm:p-6 shadow-sm space-y-4">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-text">Package Information</h2>
           <div>
-            <label htmlFor="packageName" className="block text-sm font-medium text-text mb-1.5">
-              Package Name <span className="text-urgency-critical">*</span>
+            <label htmlFor="packageName" className="block text-xs font-semibold uppercase tracking-wider text-text mb-1.5">
+              Package Name <span className="text-status-danger">*</span>
             </label>
             <input
               id="packageName"
@@ -195,13 +193,13 @@ export default function NewPackagePage() {
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Premium Haldi"
-              className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-text focus:outline-none focus:border-primary transition-colors text-sm"
+              placeholder="e.g. Premium Haldi Mandap"
+              className="w-full px-3.5 py-2 bg-surface-raised border border-border rounded-lg text-text text-sm placeholder:text-text-dim focus:outline-none focus:border-border-active transition-colors"
             />
           </div>
 
           <div>
-            <label htmlFor="packageDescription" className="block text-sm font-medium text-text mb-1.5">
+            <label htmlFor="packageDescription" className="block text-xs font-semibold uppercase tracking-wider text-text mb-1.5">
               Description
             </label>
             <textarea
@@ -210,31 +208,31 @@ export default function NewPackagePage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Complete traditional yellow floral and seating decor package."
-              className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-text focus:outline-none focus:border-primary transition-colors text-sm"
+              className="w-full px-3.5 py-2 bg-surface-raised border border-border rounded-lg text-text text-sm placeholder:text-text-dim focus:outline-none focus:border-border-active transition-colors"
             />
           </div>
         </div>
 
         {/* Components / Bill of Materials */}
-        <div className="bg-surface border border-border rounded-xl p-6 shadow-sm space-y-4">
+        <div className="bg-surface border border-border rounded-xl p-5 sm:p-6 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h2 className="text-base font-semibold text-text">Components (Version 1)</h2>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-text">Bill of Materials (Version 1)</h2>
               <p className="text-xs text-text-muted mt-0.5">
-                Select inventory items and quantities to bundle into this package.
+                Select inventory items and component quantities bundled into this package.
               </p>
             </div>
             <button
               type="button"
               onClick={() => setShowQuickAdd(!showQuickAdd)}
-              className="text-xs font-semibold text-primary hover:underline self-start sm:self-auto"
+              className="text-xs font-semibold text-primary hover:text-primary-hover self-start sm:self-auto"
             >
               {showQuickAdd ? 'Hide Quick Add' : '+ Quick Add Item to Catalog'}
             </button>
           </div>
 
           {showQuickAdd && (
-            <div className="p-4 bg-background border border-border rounded-lg space-y-3">
+            <div className="p-4 bg-surface-raised border border-border rounded-lg space-y-3">
               <div className="text-xs font-semibold text-text uppercase tracking-wider">
                 Create Missing Inventory Item
               </div>
@@ -245,7 +243,7 @@ export default function NewPackagePage() {
                     placeholder="Item name (e.g. VIP Sofa, Brass Urli, Jhoola, Carpet)"
                     value={quickItemName}
                     onChange={(e) => setQuickItemName(e.target.value)}
-                    className="w-full px-3 py-2 bg-surface border border-border rounded-md text-sm text-text focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-1.5 bg-surface border border-border rounded-md text-xs text-text placeholder:text-text-dim focus:outline-none focus:border-border-active"
                   />
                 </div>
                 <div>
@@ -255,7 +253,7 @@ export default function NewPackagePage() {
                     placeholder="Total Qty"
                     value={quickItemQty}
                     onChange={(e) => setQuickItemQty(parseInt(e.target.value, 10) || 0)}
-                    className="w-full px-3 py-2 bg-surface border border-border rounded-md text-sm text-text focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-1.5 bg-surface border border-border rounded-md text-xs text-text font-mono tabular-nums focus:outline-none focus:border-border-active"
                   />
                 </div>
               </div>
@@ -264,7 +262,7 @@ export default function NewPackagePage() {
                   type="button"
                   onClick={handleQuickAddItem}
                   disabled={quickAdding || !quickItemName.trim()}
-                  className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
                 >
                   {quickAdding ? 'Adding...' : 'Create & Add to Package'}
                 </button>
@@ -279,19 +277,19 @@ export default function NewPackagePage() {
                   <select
                     value={comp.inventoryItemId}
                     onChange={(e) => handleComponentChange(idx, 'inventoryItemId', e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-background border border-border rounded-lg text-sm text-text focus:outline-none focus:border-primary transition-colors"
+                    className="w-full px-3 py-2 bg-surface-raised border border-border rounded-lg text-xs text-text focus:outline-none focus:border-border-active transition-colors"
                   >
                     <option value="">Select an inventory item...</option>
                     {items.map((item) => (
                       <option key={item.id} value={item.id}>
-                        {item.name} {item.sku ? `(${item.sku})` : ''} — {item.totalQty} total
+                        {item.name} {item.sku ? `(${item.sku})` : ''} — {item.totalQty} total fleet
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="w-28 flex items-center gap-1.5">
-                  <span className="text-text-muted text-sm font-medium">×</span>
+                  <span className="text-text-muted text-xs font-medium">×</span>
                   <input
                     type="number"
                     min={1}
@@ -303,7 +301,7 @@ export default function NewPackagePage() {
                         parseInt(e.target.value, 10) || 1
                       )
                     }
-                    className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm text-text focus:outline-none focus:border-primary transition-colors text-center font-medium"
+                    className="w-full px-2.5 py-2 bg-surface-raised border border-border rounded-lg text-xs text-text font-mono tabular-nums text-center focus:outline-none focus:border-border-active transition-colors"
                   />
                 </div>
 
@@ -311,7 +309,7 @@ export default function NewPackagePage() {
                   <button
                     type="button"
                     onClick={() => handleRemoveComponent(idx)}
-                    className="p-2 text-text-muted hover:text-urgency-critical hover:bg-urgency-critical/10 rounded-lg transition-colors"
+                    className="p-1.5 text-text-dim hover:text-status-danger hover:bg-status-danger/10 rounded-md transition-colors"
                     title="Remove component"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -323,9 +321,9 @@ export default function NewPackagePage() {
             <button
               type="button"
               onClick={handleAddComponent}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primaryHover transition-colors mt-2"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary-hover transition-colors mt-2"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               Add Another Component
             </button>
           </div>
@@ -336,12 +334,12 @@ export default function NewPackagePage() {
                 type="checkbox"
                 checked={publishImmediately}
                 onChange={(e) => setPublishImmediately(e.target.checked)}
-                className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                className="w-4 h-4 rounded border-border text-primary focus:ring-primary bg-surface"
               />
               <div>
-                <div className="text-sm font-medium text-text">Publish Version 1 immediately</div>
-                <div className="text-xs text-text-muted">
-                  Sets status to <span className="text-green-500 font-semibold">PUBLISHED</span> so it is immediately bookable on calendar and bookings.
+                <div className="text-xs font-semibold text-text">Publish Version 1 immediately</div>
+                <div className="text-[11px] text-text-muted">
+                  Sets status to <span className="text-status-safe font-semibold">PUBLISHED</span> so it is immediately selectable in booking reservations.
                 </div>
               </div>
             </label>
@@ -349,26 +347,26 @@ export default function NewPackagePage() {
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 pt-2">
+        <div className="flex items-center justify-end gap-2.5 pt-2">
           <Link
             href="/packages"
-            className="px-4 py-2.5 text-sm font-medium text-text-muted hover:text-text hover:bg-surfaceHover rounded-lg transition-colors"
+            className="px-3.5 py-2 text-xs font-medium text-text-muted hover:text-text hover:bg-surface-raised border border-border rounded-lg transition-colors"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-hover transition-colors shadow-sm disabled:opacity-50"
           >
             {submitting ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Creating Package & Version...
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Creating Package...
               </>
             ) : (
               <>
-                <Check className="w-4 h-4" />
+                <Check className="w-3.5 h-3.5" />
                 Create & Publish Package
               </>
             )}

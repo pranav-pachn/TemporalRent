@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Box, Check, AlertCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export default function NewInventoryItemPage() {
   const router = useRouter();
@@ -57,40 +58,37 @@ export default function NewInventoryItemPage() {
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <div>
-        <Link 
-          href="/inventory"
-          className="inline-flex items-center text-sm font-medium text-text-muted hover:text-text mb-4 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 mr-1.5" />
-          Back to Inventory
-        </Link>
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
-            <Box className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-text">Add Inventory Item</h1>
-            <p className="text-text-muted text-sm mt-0.5">
-              Create a new physical rental item in your workspace catalog.
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
+      <Link 
+        href="/inventory"
+        className="inline-flex items-center text-xs font-medium text-text-muted hover:text-text transition-colors"
+      >
+        <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
+        Back to Inventory Fleet
+      </Link>
+
+      <PageHeader
+        title="Register Inventory Item"
+        description="Add physical stock to your workspace fleet catalog to track availability and reservations"
+        tag={
+          <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded bg-surface-raised border border-border text-text-muted">
+            CATALOG ENTRY
+          </span>
+        }
+      />
 
       {error && (
-        <div className="p-4 rounded-lg bg-urgency-critical/10 border border-urgency-critical/30 text-urgency-critical text-sm flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+        <div className="p-3.5 rounded-lg bg-status-danger/10 border border-status-danger/25 text-status-danger text-xs flex items-start gap-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>{error}</div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-surface border border-border rounded-xl p-6 shadow-sm space-y-6">
+      <form onSubmit={handleSubmit} className="bg-surface border border-border rounded-xl p-5 sm:p-6 shadow-sm space-y-5">
         <div className="space-y-4">
           <div>
-            <label htmlFor="itemName" className="block text-sm font-medium text-text mb-1.5">
-              Item Name <span className="text-urgency-critical">*</span>
+            <label htmlFor="itemName" className="block text-xs font-semibold uppercase tracking-wider text-text mb-1.5">
+              Item Name <span className="text-status-danger">*</span>
             </label>
             <input
               id="itemName"
@@ -99,16 +97,16 @@ export default function NewInventoryItemPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Mahogany Chiavari Chair"
-              className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-text focus:outline-none focus:border-primary transition-colors text-sm"
+              className="w-full px-3.5 py-2 bg-surface-raised border border-border rounded-lg text-text text-sm placeholder:text-text-dim focus:outline-none focus:border-border-active transition-colors"
             />
-            <p className="text-xs text-text-muted mt-1">
+            <p className="text-[11px] text-text-dim mt-1">
               Descriptive name used in packages, availability lookups, and dispatch sheets.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="itemSku" className="block text-sm font-medium text-text mb-1.5">
+              <label htmlFor="itemSku" className="block text-xs font-semibold uppercase tracking-wider text-text mb-1.5">
                 SKU / Barcode
               </label>
               <input
@@ -117,16 +115,16 @@ export default function NewInventoryItemPage() {
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
                 placeholder="e.g. CHR-MAH-01"
-                className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-text focus:outline-none focus:border-primary transition-colors text-sm uppercase"
+                className="w-full px-3.5 py-2 bg-surface-raised border border-border rounded-lg text-text text-sm font-mono uppercase placeholder:text-text-dim focus:outline-none focus:border-border-active transition-colors"
               />
-              <p className="text-xs text-text-muted mt-1">
+              <p className="text-[11px] text-text-dim mt-1">
                 Optional unique identifier for warehouse tracking.
               </p>
             </div>
 
             <div>
-              <label htmlFor="totalQty" className="block text-sm font-medium text-text mb-1.5">
-                Total Owned Quantity <span className="text-urgency-critical">*</span>
+              <label htmlFor="totalQty" className="block text-xs font-semibold uppercase tracking-wider text-text mb-1.5">
+                Total Owned Units <span className="text-status-danger">*</span>
               </label>
               <input
                 id="totalQty"
@@ -135,33 +133,33 @@ export default function NewInventoryItemPage() {
                 required
                 value={totalQty}
                 onChange={(e) => setTotalQty(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-text focus:outline-none focus:border-primary transition-colors text-sm"
+                className="w-full px-3.5 py-2 bg-surface-raised border border-border rounded-lg text-text text-sm font-mono tabular-nums focus:outline-none focus:border-border-active transition-colors"
               />
-              <p className="text-xs text-text-muted mt-1">
-                Total physical stock owned in your fleet.
+              <p className="text-[11px] text-text-dim mt-1">
+                Physical fleet quantity owned by your rental operation.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
+        <div className="pt-4 border-t border-border flex items-center justify-end gap-2.5">
           <Link
             href="/inventory"
-            className="px-4 py-2 text-sm font-medium text-text-muted hover:text-text hover:bg-surfaceHover rounded-lg transition-colors"
+            className="px-3.5 py-2 text-xs font-medium text-text-muted hover:text-text hover:bg-surface-raised border border-border rounded-lg transition-colors"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-hover transition-colors shadow-sm disabled:opacity-50"
           >
             {submitting ? (
-              <>Creating Item...</>
+              <>Registering...</>
             ) : (
               <>
-                <Check className="w-4 h-4" />
-                Create Item
+                <Check className="w-3.5 h-3.5" />
+                Register Item
               </>
             )}
           </button>

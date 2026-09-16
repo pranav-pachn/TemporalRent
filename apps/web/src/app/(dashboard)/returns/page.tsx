@@ -27,6 +27,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 export default function ReturnsPage() {
   const router = useRouter();
@@ -151,45 +153,43 @@ export default function ReturnsPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <Undo2 className="w-6 h-6 text-emerald-500" />
-            Returns & Inspection
-          </h1>
-          <p className="text-neutral-400 text-sm mt-1">
-            Reconcile physical inventory returning to the warehouse, verify conditions, and record damages.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Returns & Check-In Inspection"
+        description="Reconcile physical inventory returning to warehouse, inspect conditions, and quarantine damages"
+        tag={
+          <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded bg-surface-raised border border-border text-text-muted tabular-nums">
+            {data.awaiting.length} PENDING INSPECTION
+          </span>
+        }
+      />
 
       {actionError && (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm flex items-center justify-between">
+        <div className="p-3 bg-status-danger/10 border border-status-danger/30 rounded-lg text-status-danger text-xs flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{actionError}</span>
           </div>
-          <button onClick={() => setActionError(null)} className="text-red-400 hover:text-white">
+          <button onClick={() => setActionError(null)} className="text-status-danger hover:text-white">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-white/5 space-x-2">
+      <div className="flex border-b border-border space-x-2">
         <button
           onClick={() => setActiveTab('AWAITING')}
-          className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 ${
+          className={`pb-2.5 px-3 text-xs font-semibold transition-colors border-b-2 flex items-center gap-2 ${
             activeTab === 'AWAITING'
-              ? 'border-emerald-500 text-emerald-400'
-              : 'border-transparent text-neutral-400 hover:text-white'
+              ? 'border-status-safe text-status-safe'
+              : 'border-transparent text-text-muted hover:text-text'
           }`}
         >
-          <span>Awaiting Return</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${
-            activeTab === 'AWAITING' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-neutral-800 text-neutral-500'
+          <span>Awaiting Inspection</span>
+          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded tabular-nums ${
+            activeTab === 'AWAITING' ? 'bg-status-safe/20 text-status-safe' : 'bg-surface-raised text-text-dim'
           }`}>
             {data.awaiting.length}
           </span>
@@ -197,15 +197,15 @@ export default function ReturnsPage() {
 
         <button
           onClick={() => setActiveTab('COMPLETED')}
-          className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 ${
+          className={`pb-2.5 px-3 text-xs font-semibold transition-colors border-b-2 flex items-center gap-2 ${
             activeTab === 'COMPLETED'
-              ? 'border-emerald-500 text-emerald-400'
-              : 'border-transparent text-neutral-400 hover:text-white'
+              ? 'border-status-safe text-status-safe'
+              : 'border-transparent text-text-muted hover:text-text'
           }`}
         >
-          <span>Completed Returns</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${
-            activeTab === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-neutral-800 text-neutral-500'
+          <span>Completed Inspections</span>
+          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded tabular-nums ${
+            activeTab === 'COMPLETED' ? 'bg-status-safe/20 text-status-safe' : 'bg-surface-raised text-text-dim'
           }`}>
             {data.completed.length}
           </span>
@@ -223,10 +223,10 @@ export default function ReturnsPage() {
         </div>
       ) : activeTab === 'AWAITING' ? (
         data.awaiting.length === 0 ? (
-          <div className="bg-neutral-900 border border-white/5 rounded-2xl py-20 text-center">
-            <ShieldCheck className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-white mb-1">No bookings awaiting return</h3>
-            <p className="text-neutral-400 text-sm">
+          <div className="bg-surface border border-border rounded-xl py-16 text-center">
+            <ShieldCheck className="w-10 h-10 text-status-safe/60 mx-auto mb-3" />
+            <h3 className="text-sm font-semibold text-text mb-1">No bookings awaiting return</h3>
+            <p className="text-text-muted text-xs">
               All dispatched bookings have been reconciled and returned.
             </p>
           </div>
@@ -238,60 +238,58 @@ export default function ReturnsPage() {
               return (
                 <div
                   key={item.id}
-                  className="bg-neutral-900 border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-colors flex flex-col justify-between space-y-4"
+                  className="bg-surface border border-border rounded-xl p-5 hover:border-border-muted transition-colors flex flex-col justify-between space-y-4"
                 >
                   <div>
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h2 className="text-lg font-semibold text-white tracking-tight">
+                        <h2 className="text-base font-semibold text-text tracking-tight">
                           {item.eventName}
                         </h2>
-                        <div className="flex items-center gap-2 text-xs text-neutral-500 mt-1">
-                          <span>Booking #{item.id.substring(0, 8)}</span>
+                        <div className="flex items-center gap-2 text-xs text-text-muted mt-1">
+                          <span className="font-mono">#{item.id.substring(0, 8)}</span>
                           {item.customer && (
                             <>
                               <span>&middot;</span>
-                              <span className="text-neutral-400">{item.customer.name}</span>
+                              <span className="text-text-dim">{item.customer.name}</span>
                             </>
                           )}
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 text-xs font-semibold rounded-md border uppercase tracking-wider bg-blue-500/10 text-blue-400 border-blue-500/20">
-                        DISPATCHED
-                      </span>
+                      <StatusBadge status="DISPATCHED" />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-white/5 text-sm">
+                    <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-border text-xs">
                       <div>
-                        <div className="text-neutral-500 text-xs flex items-center gap-1 mb-1">
+                        <div className="text-text-muted flex items-center gap-1 mb-1">
                           <Calendar className="w-3.5 h-3.5" /> Return Expected
                         </div>
-                        <div className="text-neutral-200 font-medium text-xs">
+                        <div className="text-text font-medium font-mono tabular-nums">
                           {new Date(item.eventEnd).toLocaleDateString()}
                         </div>
                       </div>
                       <div>
-                        <div className="text-neutral-500 text-xs flex items-center gap-1 mb-1">
+                        <div className="text-text-muted flex items-center gap-1 mb-1">
                           <Package className="w-3.5 h-3.5" /> Dispatched Units
                         </div>
-                        <div className="text-neutral-200 font-medium text-xs">
+                        <div className="text-text font-medium font-mono tabular-nums">
                           {item.dispatch.lines.length} lines &middot; {totalDispatched} units out
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-white/5 flex gap-2">
+                  <div className="pt-3 border-t border-border flex gap-2">
                     <button
                       onClick={() => openInspection(item)}
-                      className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-[0_0_12px_rgba(16,185,129,0.2)]"
+                      className="flex-1 px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-sm"
                     >
                       <ClipboardCheck className="w-3.5 h-3.5" />
                       Start Return Inspection
                     </button>
                     <Link
                       href={`/bookings/${item.id}`}
-                      className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-medium rounded-lg flex items-center justify-center transition-colors"
+                      className="px-3 py-2 bg-surface-raised hover:bg-surface-active text-text-muted hover:text-text border border-border text-xs font-medium rounded-lg flex items-center justify-center transition-colors"
                     >
                       View Booking
                     </Link>
@@ -304,10 +302,10 @@ export default function ReturnsPage() {
       ) : (
         /* Completed Returns List */
         data.completed.length === 0 ? (
-          <div className="bg-neutral-900 border border-white/5 rounded-2xl py-20 text-center">
-            <Undo2 className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-white mb-1">No completed returns yet</h3>
-            <p className="text-neutral-400 text-sm">
+          <div className="bg-surface border border-border rounded-xl py-16 text-center">
+            <Undo2 className="w-10 h-10 text-text-muted mx-auto mb-3" />
+            <h3 className="text-sm font-semibold text-text mb-1">No completed returns yet</h3>
+            <p className="text-text-muted text-xs">
               Completed return inspections will appear here.
             </p>
           </div>
@@ -321,38 +319,36 @@ export default function ReturnsPage() {
               return (
                 <div
                   key={ret.id}
-                  className="bg-neutral-900 border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-colors space-y-4"
+                  className="bg-surface border border-border rounded-xl p-5 hover:border-border-muted transition-colors space-y-4"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h2 className="text-base font-semibold text-white">
+                        <h2 className="text-sm font-semibold text-text">
                           {ret.booking.eventName}
                         </h2>
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase">
-                          COMPLETED
-                        </span>
+                        <StatusBadge status="COMPLETED" />
                       </div>
-                      <div className="text-xs text-neutral-500 mt-1 flex items-center gap-2">
-                        <span>Booking #{ret.bookingId.substring(0, 8)}</span>
+                      <div className="text-xs text-text-muted mt-1 flex items-center gap-2">
+                        <span className="font-mono">#{ret.bookingId.substring(0, 8)}</span>
                         <span>&middot;</span>
-                        <span>
-                          Inspected on {ret.inspectedAt ? new Date(ret.inspectedAt).toLocaleDateString() : 'N/A'}
+                        <span className="font-mono tabular-nums">
+                          Inspected {ret.inspectedAt ? new Date(ret.inspectedAt).toLocaleDateString() : 'N/A'}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className="px-2.5 py-1 rounded bg-neutral-800 text-neutral-300">
-                        Good: <strong className="text-white">{totalGood}</strong>
+                    <div className="flex items-center gap-2 text-xs font-mono tabular-nums">
+                      <span className="px-2.5 py-1 rounded bg-surface-raised border border-border text-text-muted">
+                        Good: <strong className="text-status-safe">{totalGood}</strong>
                       </span>
                       {totalDamaged > 0 && (
-                        <span className="px-2.5 py-1 rounded bg-red-500/20 text-red-400 font-medium">
+                        <span className="px-2.5 py-1 rounded bg-status-danger/10 border border-status-danger/20 text-status-danger font-medium">
                           Damaged: <strong>{totalDamaged}</strong>
                         </span>
                       )}
                       {totalMissing > 0 && (
-                        <span className="px-2.5 py-1 rounded bg-amber-500/20 text-amber-400 font-medium">
+                        <span className="px-2.5 py-1 rounded bg-status-warning/10 border border-status-warning/20 text-status-warning font-medium">
                           Missing: <strong>{totalMissing}</strong>
                         </span>
                       )}
@@ -360,9 +356,9 @@ export default function ReturnsPage() {
                   </div>
 
                   {/* Lines Breakdown */}
-                  <div className="bg-neutral-950 border border-white/5 rounded-xl overflow-hidden text-xs">
+                  <div className="bg-surface-raised border border-border rounded-lg overflow-hidden text-xs">
                     <table className="w-full text-left">
-                      <thead className="bg-neutral-900 border-b border-white/5 text-neutral-400 uppercase font-semibold">
+                      <thead className="bg-surface-subtle border-b border-border text-[11px] font-semibold text-text-muted uppercase tracking-wider">
                         <tr>
                           <th className="px-4 py-2.5">Item</th>
                           <th className="px-4 py-2.5 text-center">Expected</th>
@@ -371,26 +367,26 @@ export default function ReturnsPage() {
                           <th className="px-4 py-2.5 text-center">Missing</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/5">
+                      <tbody className="divide-y divide-border">
                         {ret.lines.map((l) => (
-                          <tr key={l.id} className="hover:bg-white/5">
+                          <tr key={l.id} className="hover:bg-surface-subtle/50 transition-colors">
                             <td className="px-4 py-2.5">
-                              <div className="font-medium text-white">{l.inventoryItem.name}</div>
+                              <div className="font-medium text-text">{l.inventoryItem.name}</div>
                               {l.damageReports && l.damageReports.length > 0 && (
-                                <div className="text-red-400/80 text-[11px] mt-0.5">
+                                <div className="text-status-danger text-[11px] mt-0.5">
                                   Damage note: {l.damageReports[0].description}
                                 </div>
                               )}
                             </td>
-                            <td className="px-4 py-2.5 text-center text-neutral-400">{l.expectedQty}</td>
-                            <td className="px-4 py-2.5 text-center text-emerald-400 font-medium">{l.returnedGoodQty}</td>
-                            <td className="px-4 py-2.5 text-center">
-                              <span className={l.damagedQty > 0 ? 'text-red-400 font-bold' : 'text-neutral-500'}>
+                            <td className="px-4 py-2.5 text-center font-mono tabular-nums text-text-muted">{l.expectedQty}</td>
+                            <td className="px-4 py-2.5 text-center font-mono tabular-nums text-status-safe font-medium">{l.returnedGoodQty}</td>
+                            <td className="px-4 py-2.5 text-center font-mono tabular-nums">
+                              <span className={l.damagedQty > 0 ? 'text-status-danger font-bold' : 'text-text-dim'}>
                                 {l.damagedQty}
                               </span>
                             </td>
-                            <td className="px-4 py-2.5 text-center">
-                              <span className={l.missingQty > 0 ? 'text-amber-400 font-bold' : 'text-neutral-500'}>
+                            <td className="px-4 py-2.5 text-center font-mono tabular-nums">
+                              <span className={l.missingQty > 0 ? 'text-status-warning font-bold' : 'text-text-dim'}>
                                 {l.missingQty}
                               </span>
                             </td>
@@ -408,18 +404,16 @@ export default function ReturnsPage() {
 
       {/* Return Inspection Modal */}
       {selectedBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-none">
+          <div className="bg-surface border border-border-muted rounded-xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
             {/* Modal Header */}
-            <div className="flex items-start justify-between p-6 border-b border-white/5 bg-neutral-950">
+            <div className="flex items-start justify-between p-5 border-b border-border bg-surface-raised">
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-white tracking-tight">
-                    Return Inspection: {selectedBooking.eventName}
-                  </h2>
-                </div>
-                <p className="text-neutral-400 text-xs mt-1">
-                  Reconcile quantities based on actual dispatched physical inventory.
+                <h2 className="text-base font-bold text-text tracking-tight">
+                  Return Inspection: {selectedBooking.eventName}
+                </h2>
+                <p className="text-text-muted text-xs mt-0.5">
+                  Reconcile quantities based on actual physical inventory received at warehouse.
                 </p>
               </div>
               <button
@@ -427,30 +421,30 @@ export default function ReturnsPage() {
                   setSelectedBooking(null);
                   setInspectionData(null);
                 }}
-                className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+                className="p-1.5 text-text-muted hover:text-text rounded-lg hover:bg-surface-subtle transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 overflow-y-auto flex-1 space-y-6">
+            <div className="p-5 overflow-y-auto flex-1 space-y-4">
               {inspectionLoading ? (
-                <div className="text-neutral-400 py-12 text-center">Loading inspection lines...</div>
+                <div className="text-text-muted py-12 text-center text-xs">Loading inspection lines...</div>
               ) : !inspectionData ? (
-                <div className="text-red-400 text-center py-8">Failed to load inspection data.</div>
+                <div className="text-status-danger text-center py-8 text-xs">Failed to load inspection data.</div>
               ) : (
                 <>
-                  <div className="p-3.5 bg-neutral-950 border border-white/5 rounded-xl text-xs text-neutral-400 space-y-1">
+                  <div className="p-3 bg-surface-raised border border-border rounded-lg text-xs text-text-muted space-y-1">
                     <div>
-                      <strong>Invariant Rule:</strong> For every line, <code className="text-neutral-200">Good + Damaged + Missing</code> must exactly equal <code className="text-neutral-200">Expected Return</code>.
+                      <strong className="text-text">Reconciliation Rule:</strong> For every line, <code className="text-text font-mono">Good + Damaged + Missing</code> must exactly equal <code className="text-text font-mono">Expected Return</code>.
                     </div>
                     <div>
-                      If items are damaged, an operational damage reason is strictly mandatory.
+                      If damaged units are present, an operational description is strictly mandatory.
                     </div>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {inspectionData.dispatch.lines.map((line) => {
                       const vals = lineValues[line.dispatchLineId] || {
                         good: line.expectedReturnQty,
@@ -466,28 +460,28 @@ export default function ReturnsPage() {
                       return (
                         <div
                           key={line.dispatchLineId}
-                          className={`bg-neutral-950 border rounded-xl p-4 space-y-3 transition-colors ${
-                            isBalanced ? 'border-white/5' : 'border-red-500/30'
+                          className={`bg-surface-raised border rounded-lg p-4 space-y-3 transition-colors ${
+                            isBalanced ? 'border-border' : 'border-status-danger/40'
                           }`}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div>
-                              <div className="font-semibold text-white text-sm">
+                              <div className="font-semibold text-text text-sm">
                                 {line.inventoryItemName}
                               </div>
                               {line.sku && (
-                                <div className="text-neutral-500 text-xs">SKU: {line.sku}</div>
+                                <div className="text-text-dim text-xs font-mono">SKU: {line.sku}</div>
                               )}
                             </div>
-                            <div className="text-xs text-neutral-400 bg-neutral-900 px-3 py-1 rounded-md border border-white/5 self-start sm:self-auto">
-                              Expected Return: <strong className="text-white">{line.expectedReturnQty}</strong> units
+                            <div className="text-xs text-text-muted bg-surface-subtle px-2.5 py-1 rounded border border-border self-start sm:self-auto font-mono tabular-nums">
+                              Expected: <strong className="text-text">{line.expectedReturnQty}</strong> units
                             </div>
                           </div>
 
                           {/* Inputs Grid */}
-                          <div className="grid grid-cols-3 gap-3 pt-2">
+                          <div className="grid grid-cols-3 gap-3 pt-1">
                             <div>
-                              <label className="text-[11px] text-neutral-400 uppercase font-medium block mb-1">
+                              <label className="text-[11px] text-text-muted uppercase font-semibold block mb-1">
                                 Good Condition
                               </label>
                               <input
@@ -502,12 +496,12 @@ export default function ReturnsPage() {
                                     [line.dispatchLineId]: { ...prev[line.dispatchLineId], good: v },
                                   }));
                                 }}
-                                className="w-full px-3 py-1.5 bg-neutral-900 border border-white/10 rounded-lg text-white text-sm font-medium focus:outline-none focus:border-emerald-500"
+                                className="w-full px-3 py-1.5 bg-surface border border-border rounded-md text-text text-sm font-mono tabular-nums focus:outline-none focus:border-border-active focus:ring-1 focus:ring-border-active"
                               />
                             </div>
 
                             <div>
-                              <label className="text-[11px] text-red-400/90 uppercase font-medium block mb-1">
+                              <label className="text-[11px] text-status-danger uppercase font-semibold block mb-1">
                                 Damaged
                               </label>
                               <input
@@ -522,12 +516,12 @@ export default function ReturnsPage() {
                                     [line.dispatchLineId]: { ...prev[line.dispatchLineId], damaged: v },
                                   }));
                                 }}
-                                className="w-full px-3 py-1.5 bg-neutral-900 border border-white/10 rounded-lg text-red-400 text-sm font-medium focus:outline-none focus:border-red-500"
+                                className="w-full px-3 py-1.5 bg-surface border border-status-danger/30 rounded-md text-status-danger text-sm font-mono tabular-nums focus:outline-none focus:border-status-danger"
                               />
                             </div>
 
                             <div>
-                              <label className="text-[11px] text-amber-400/90 uppercase font-medium block mb-1">
+                              <label className="text-[11px] text-status-warning uppercase font-semibold block mb-1">
                                 Missing
                               </label>
                               <input
@@ -542,21 +536,21 @@ export default function ReturnsPage() {
                                     [line.dispatchLineId]: { ...prev[line.dispatchLineId], missing: v },
                                   }));
                                 }}
-                                className="w-full px-3 py-1.5 bg-neutral-900 border border-white/10 rounded-lg text-amber-400 text-sm font-medium focus:outline-none focus:border-amber-500"
+                                className="w-full px-3 py-1.5 bg-surface border border-status-warning/30 rounded-md text-status-warning text-sm font-mono tabular-nums focus:outline-none focus:border-status-warning"
                               />
                             </div>
                           </div>
 
                           {/* Dynamic Invariant Display */}
-                          <div className="pt-2 flex items-center justify-between text-xs border-t border-white/5">
+                          <div className="pt-2 flex items-center justify-between text-xs border-t border-border font-mono tabular-nums">
                             <div className="flex items-center gap-1.5">
                               {isBalanced ? (
-                                <span className="text-emerald-400 flex items-center gap-1">
+                                <span className="text-status-safe flex items-center gap-1">
                                   <CheckCircle2 className="w-3.5 h-3.5" />
-                                  <span>{vals.good} + {vals.damaged} + {vals.missing} = {line.expectedReturnQty} ✓</span>
+                                  <span>{vals.good} + {vals.damaged} + {vals.missing} = {line.expectedReturnQty} (Balanced)</span>
                                 </span>
                               ) : (
-                                <span className="text-red-400 font-semibold flex items-center gap-1">
+                                <span className="text-status-danger font-semibold flex items-center gap-1">
                                   <AlertCircle className="w-3.5 h-3.5" />
                                   <span>{vals.good} + {vals.damaged} + {vals.missing} ≠ {line.expectedReturnQty} (Total: {sum})</span>
                                 </span>
@@ -567,13 +561,13 @@ export default function ReturnsPage() {
                           {/* Damage Reason Input (Mandatory when damaged > 0) */}
                           {vals.damaged > 0 && (
                             <div className="pt-2 space-y-1">
-                              <label className="text-xs text-red-300 font-medium flex items-center gap-1">
+                              <label className="text-xs text-status-danger font-medium flex items-center gap-1">
                                 <AlertTriangle className="w-3.5 h-3.5" />
-                                Damage Reason / Description <span className="text-red-500">*</span>
+                                Damage Reason / Description <span className="text-status-danger">*</span>
                               </label>
                               <input
                                 type="text"
-                                placeholder="Describe physical damage (e.g. Torn upholstery, cracked frame)..."
+                                placeholder="Describe physical damage (e.g. Torn fabric, bent arm)..."
                                 value={vals.reason}
                                 onChange={(e) => {
                                   const text = e.target.value;
@@ -582,10 +576,10 @@ export default function ReturnsPage() {
                                     [line.dispatchLineId]: { ...prev[line.dispatchLineId], reason: text },
                                   }));
                                 }}
-                                className="w-full px-3 py-2 bg-neutral-900 border border-red-500/30 rounded-lg text-white text-xs placeholder:text-neutral-600 focus:outline-none focus:border-red-500"
+                                className="w-full px-3 py-1.5 bg-surface border border-status-danger/40 rounded-md text-text text-xs placeholder:text-text-dim focus:outline-none focus:border-status-danger"
                               />
                               {hasMissingReason && (
-                                <div className="text-[11px] text-red-400">
+                                <div className="text-[11px] text-status-danger">
                                   A description of the damage is required before completing inspection.
                                 </div>
                               )}
@@ -600,13 +594,13 @@ export default function ReturnsPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-white/5 bg-neutral-950 flex justify-between items-center">
+            <div className="p-4 border-t border-border bg-surface-raised flex justify-between items-center">
               <button
                 onClick={() => {
                   setSelectedBooking(null);
                   setInspectionData(null);
                 }}
-                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-surface hover:bg-surface-subtle text-text-muted hover:text-text text-xs font-medium rounded-lg border border-border transition-colors"
               >
                 Cancel
               </button>
@@ -614,7 +608,7 @@ export default function ReturnsPage() {
               <button
                 onClick={handleCompleteReturn}
                 disabled={!isInspectionValid() || isSubmitting}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                className="px-5 py-2 bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-sm"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 {isSubmitting ? 'Processing Return...' : 'Complete Return'}
