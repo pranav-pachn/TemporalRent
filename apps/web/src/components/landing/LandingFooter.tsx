@@ -14,16 +14,16 @@ export function LandingFooter() {
         <div className="flex flex-wrap gap-8 text-sm">
           <div className="space-y-2 flex flex-col">
             <span className="font-mono text-xs uppercase font-semibold text-text">Product</span>
-            <Link href="#problem" className="text-text-muted hover:text-text transition-colors">Problem</Link>
-            <Link href="#how-it-works" className="text-text-muted hover:text-text transition-colors">How it works</Link>
-            <Link href="#operations" className="text-text-muted hover:text-text transition-colors">Operations</Link>
-            <Link href="#audit" className="text-text-muted hover:text-text transition-colors">Audit</Link>
+            <Link href="#problem" className="text-text-muted hover:text-text transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded">Problem</Link>
+            <Link href="#how-it-works" className="text-text-muted hover:text-text transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded">How it works</Link>
+            <Link href="#operations" className="text-text-muted hover:text-text transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded">Operations</Link>
+            <Link href="#audit" className="text-text-muted hover:text-text transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded">Audit</Link>
           </div>
 
           <div className="space-y-2 flex flex-col">
             <span className="font-mono text-xs uppercase font-semibold text-text">Account</span>
-            <Link href="/login" className="text-text-muted hover:text-text transition-colors">Sign in</Link>
-            <Link href="/signup" className="text-text-muted hover:text-text transition-colors">Get started</Link>
+            <Link href="/login" className="text-text-muted hover:text-text transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded">Sign in</Link>
+            <Link href="/signup" className="text-text-muted hover:text-text transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded">Get started</Link>
           </div>
         </div>
       </div>

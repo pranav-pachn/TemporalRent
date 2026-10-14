@@ -61,14 +61,16 @@ export function LandingNavbar() {
         <div className="flex sm:hidden items-center gap-2">
           <Link 
             href="/login" 
-            className="text-xs font-semibold bg-primary text-primary-foreground px-3 py-1.5 rounded-md"
+            className="text-xs font-semibold bg-primary text-primary-foreground px-3 py-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Sign in
           </Link>
           <button
+            type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-text-muted hover:text-text rounded-md hover:bg-surface border border-border"
-            aria-label="Toggle Navigation Menu"
+            className="p-2 text-text-muted hover:text-text rounded-md hover:bg-surface border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -78,48 +80,48 @@ export function LandingNavbar() {
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-surface border-b border-border px-6 py-5 space-y-4">
-          <div className="flex flex-col space-y-3 font-medium text-sm text-text-muted">
+          <div className="flex flex-col space-y-1 font-medium text-sm text-text-muted">
             <Link 
               href="#problem" 
               onClick={() => setMobileMenuOpen(false)}
-              className="py-1 hover:text-text transition-colors"
+              className="py-2.5 px-3 rounded-md hover:text-text hover:bg-surface-raised transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Problem
             </Link>
             <Link 
               href="#how-it-works" 
               onClick={() => setMobileMenuOpen(false)}
-              className="py-1 hover:text-text transition-colors"
+              className="py-2.5 px-3 rounded-md hover:text-text hover:bg-surface-raised transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               How it works
             </Link>
             <Link 
               href="#operations" 
               onClick={() => setMobileMenuOpen(false)}
-              className="py-1 hover:text-text transition-colors"
+              className="py-2.5 px-3 rounded-md hover:text-text hover:bg-surface-raised transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Operations
             </Link>
             <Link 
               href="#audit" 
               onClick={() => setMobileMenuOpen(false)}
-              className="py-1 hover:text-text transition-colors"
+              className="py-2.5 px-3 rounded-md hover:text-text hover:bg-surface-raised transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Audit
             </Link>
           </div>
-          <div className="pt-4 border-t border-border flex flex-col gap-2">
+          <div className="pt-3 border-t border-border flex flex-col gap-2">
             <Link 
               href="/login" 
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full text-center py-2.5 rounded-lg border border-border text-sm font-medium text-text hover:bg-surfaceHover"
+              className="w-full text-center py-2.5 rounded-lg border border-border text-sm font-medium text-text hover:bg-surfaceHover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Sign in
             </Link>
             <Link 
               href="/signup" 
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full text-center py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primaryHover"
+              className="w-full text-center py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primaryHover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Get started &rarr;
             </Link>

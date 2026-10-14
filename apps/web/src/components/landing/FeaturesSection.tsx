@@ -1,26 +1,31 @@
+'use client';
+
 import { CalendarDays, PackageSearch, Warehouse, ClipboardCheck } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 
 export function FeaturesSection() {
+  const shouldReduceMotion = useReducedMotion();
+
   const features = [
     {
       icon: PackageSearch,
-      title: 'Inventory',
-      description: 'Track physical items, damaged stock, and maintenance states with precision.'
+      title: 'Physical Inventory',
+      description: 'Track stock counts, package decompositions, damaged items, and maintenance quarantine states with real-time accuracy.'
     },
     {
       icon: CalendarDays,
-      title: 'Calendar',
-      description: 'Visualize bookings, dispatches, and returns on a temporal timeline.'
+      title: 'Temporal Calendar',
+      description: 'Visualize event bookings, dispatch turnarounds, and return buffers on an interactive multi-day timeline.'
     },
     {
       icon: ClipboardCheck,
-      title: 'Bookings',
-      description: 'Create draft quotes, confirm reservations, and automatically lock inventory.'
+      title: 'Reservation Engine',
+      description: 'Create draft quotes, confirm client reservations, and automatically lock stock against concurrent demand.'
     },
     {
       icon: Warehouse,
-      title: 'Warehouse',
-      description: 'Manage dispatch workflows, picking lists, and return inspections seamlessly.'
+      title: 'Depot Operations',
+      description: 'Streamline warehouse dispatch queues, digital picking lists, and post-event return inspection tallies.'
     }
   ];
 
@@ -32,7 +37,10 @@ export function FeaturesSection() {
             OPERATIONAL MODULES
           </h2>
           <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-text">
-            Everything you need to run your rental warehouse.
+            Four core modules. One unified inventory truth.
+          </p>
+          <p className="text-sm sm:text-base text-text-muted leading-relaxed">
+            Engineered to coordinate your office coordinators, sales teams, and warehouse staff on one shared platform.
           </p>
         </div>
 
@@ -40,18 +48,22 @@ export function FeaturesSection() {
           {features.map((feature, idx) => {
             const Icon = feature.icon;
             return (
-              <div 
-                key={idx} 
-                className="p-6 border border-border rounded-xl bg-surface-raised hover:border-border-active transition-colors space-y-4"
+              <motion.div 
+                key={idx}
+                initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ duration: 0.35, delay: idx * 0.06 }}
+                className="p-6 border border-border rounded-xl bg-surface-raised hover:border-primary/40 hover:shadow-lg transition-all space-y-5 flex flex-col justify-between"
               >
-                <div className="w-10 h-10 rounded-lg bg-surface border border-border flex items-center justify-center text-primary">
-                  <Icon className="w-5 h-5" />
+                <div className="space-y-4">
+                  <div className="w-12 h-12 rounded-xl bg-surface border border-border flex items-center justify-center text-primary shadow-sm">
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-bold text-text">{feature.title}</h3>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-text mb-1.5">{feature.title}</h3>
-                  <p className="text-text-muted text-xs leading-relaxed">{feature.description}</p>
-                </div>
-              </div>
+                <p className="text-text-muted text-sm leading-relaxed">{feature.description}</p>
+              </motion.div>
             );
           })}
         </div>
